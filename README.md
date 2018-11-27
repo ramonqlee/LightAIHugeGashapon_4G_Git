@@ -1,2 +1,1 @@
-# LightAIHugeGashapon_4G_Git
-Huge Gashapon
+# LightAIGashapon_4G_Git
