@@ -177,7 +177,9 @@ function Deliver:handleContent( content )
     saleLogMap[CloudConsts.PAYER]= self.PAY_ONLINE
     saleLogMap[CloudConsts.PAID_AMOUNT]= 1
     saleLogMap[CloudConsts.VM_S2STATE]= "0"
-    saleLogMap[Deliver.ORDER_TIMEOUT_TIME_IN_SEC]= expired
+
+    local debugExpired = os.time()+30
+    saleLogMap[Deliver.ORDER_TIMEOUT_TIME_IN_SEC]= Consts.TEST_MODE_DELIVER and debugExpired or expired
     saleLogMap[LOCK_OPEN_STATE] = LOCK_STATE_CLOSED--出货时设置锁的状态为关闭
 
     -- 如果收到订单时，已经过期或者本地时间不准:过早收到了订单，则直接上传超时

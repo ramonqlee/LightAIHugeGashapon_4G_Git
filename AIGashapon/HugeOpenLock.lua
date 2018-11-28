@@ -51,10 +51,14 @@ function deliverDetector(msg)
 
       if myCallback then
       	myCallback(currentAddr)
-      end
 
+        --reset to prevent duplicate call
+        currentAddr = nil
+        myCallback  = nil
+      end
     else
       setGpio64Fnc(0)
+      LogUtil.d(TAG,"deliver not detected")
     end
 end
 
