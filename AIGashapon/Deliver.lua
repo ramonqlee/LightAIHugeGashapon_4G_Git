@@ -91,7 +91,7 @@ function  openLockCallback(addr)
         return
     end
 
-    LogUtil.d(TAG,TAG.."in openLockCallback gBusyMap len="..getTableLen(gBusyMap).." addr="..addr)
+    LogUtil.d(TAG,TAG.." in openLockCallback gBusyMap len="..getTableLen(gBusyMap).." addr="..addr)
 
     local toRemove = {}
     for key,saleTable in pairs(gBusyMap) do
@@ -211,31 +211,7 @@ function TimerFunc(id)
             orderId = saleTable[CloudConsts.ONLINE_ORDER_ID]
             seq = saleTable[CloudConsts.DEVICE_SEQ]
             loc = saleTable[CloudConsts.LOCATION]
-
-            --TODO 是否已经发送过重试开锁指令
-            local openTime = saleTable[LOCK_OPEN_TIME]
-            if Consts.RETRY_OPEN_LOCK and openTime and os.time()-openTime > Deliver.DEFAULT_EXPIRE_TIME_IN_SEC + Deliver.DEFAULT_CHECK_DELAY_TIME_IN_SEC and saleTable[LOCK_OPEN_STATE] ~= LOCK_STATE_OPEN then
-                local retried = saleTable[CloudConsts.RETRY_OPEN_LOCK]
-                if true~=retried then
-                    -- 开锁
-                    local addr = nil
-                    if "string" == type(seq) then
-                        addr = string.fromHex(seq)--pack.pack("b3",0x00,0x00,0x06)  
-                    elseif "number"==type(seq) then
-                        addr = string.format("%2X",seq)
-                    end
-
-                    if  addr then
-                        r = UARTControlInd.encode(addr,loc,Deliver.REOPEN_EXPIRE_TIME_IN_SEC)
-                        UartMgr.publishMessage(r)
-
-                        LogUtil.d(TAG,TAG.." Deliver reopenLock, orderId = "..orderId)
-                    end
-
-                    saleTable[CloudConsts.RETRY_OPEN_LOCK] = true
-                end
-            end
-
+            
            -- 是否超时了
            orderTimeoutTime=saleTable[Deliver.ORDER_TIMEOUT_TIME_IN_SEC]
            if orderTimeoutTime then
@@ -463,7 +439,7 @@ function Deliver:handleContent( content )
 
         -- 开锁，以及检测
         -- TODO 中断方式，进行回调
-        HugeOpenLock.setDeliverCallback(addr,openLockCallback)
+        HugeOpenLock.setDeliverCallback(device_seq,openLockCallback)
         HugeOpenLock.open()
         
         -- UARTStatRep.setCallback(openLockCallback)
@@ -471,7 +447,7 @@ function Deliver:handleContent( content )
 
         -- UartMgr.publishMessage(r)
 
-        LogUtil.d(TAG,TAG.." Deliver openLock,addr = "..addr)
+        LogUtil.d(TAG,TAG.." Deliver openLock,addr = "..device_seq)
         
         local key = device_seq.."_"..location
         gBusyMap[key]=saleLogMap
