@@ -40,11 +40,12 @@ function HugeOpenLock.setDeliverCallback( addr,callback )
 end
 
 function deliverDetector(msg)
-    LogUtil.d(TAG,"deliverDetector "..msg)
+    LogUtil.d(TAG,"deliverDetector")
+
     if msg==cpu.INT_GPIO_NEGEDGE then
       LogUtil.d(TAG,"deliver detected")
+      
       setGpio64Fnc(1)
-
       if not currentAddr or not myCallback then
       	return
       end
