@@ -118,7 +118,6 @@ function UARTAllInfoRep.handle(bins)
 			-- temp = pack.pack("b3",id1,id2,id3)
 			temp = id1..id2..id3
 			if not UARTAllInfoRep.hasIds(temp) then
-				-- mAllBoardIds[#mAllBoardIds+1]=temp
 				table.insert(mAllBoardIds,temp)
 				LogUtil.d(TAG,"find device = "..temp)
 			end

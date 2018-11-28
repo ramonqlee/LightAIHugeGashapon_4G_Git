@@ -15,9 +15,9 @@ local TAG = "OpenLock"
 
 local wd= pins.setup(pio.P0_27,CLOSE_VAL)--函数
 local setGpio64Fnc = pins.setup(pio.P2_0,0)
+HugeOpenLock={}
 
-
-function open()
+function HugeOpenLock.open()
 	if not wd or "function"~= type(wd) then
 		return
 	end
@@ -34,13 +34,13 @@ end
 --戳货检测
 local myCallback = nil
 local currentAddr = nil
-function setDeliverCallback( addr,callback )
+function HugeOpenLock.setDeliverCallback( addr,callback )
 	myCallback = callback
 	currentAddr = addr
 end
 
 function deliverDetector(msg)
-    -- log.info("pin28 mod24 int",msg,getGpio28Fnc())
+    LogUtil.d(TAG,"deliverDetector "..msg)
     if msg==cpu.INT_GPIO_NEGEDGE then
       LogUtil.d(TAG,"deliver detected")
       setGpio64Fnc(1)
@@ -58,6 +58,5 @@ function deliverDetector(msg)
     end
 end
 
-getGpio28Fnc = pins.setup(pio.P0_28,deliverDetector)
-
+local getGpio28Fnc = pins.setup(pio.P0_28,deliverDetector)
 
