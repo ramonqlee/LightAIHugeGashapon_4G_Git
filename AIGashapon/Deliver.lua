@@ -16,6 +16,7 @@ require "RepDeliver"
 require "UploadSaleLog"
 require "CRBase"
 require "UploadDetect"
+require "HugeOpenLock"
 
 local jsonex = require "jsonex"
 local TAG = "Deliver"
@@ -263,10 +264,16 @@ function Deliver:handleContent( content )
         return
     end
         saleLogMap[LOCK_OPEN_TIME]=os.time()
-        UARTStatRep.setCallback(openLockCallback)
-        r = UARTControlInd.encode(addr,location,timeoutInSec)
 
-        UartMgr.publishMessage(r)
+        -- 开锁，以及检测
+        HugeOpenLock.open()
+        -- TODO 中断方式，进行回调
+        HugeOpenLock.setDeliverCallback(addr,openLockCallback)
+        
+        -- UARTStatRep.setCallback(openLockCallback)
+        -- r = UARTControlInd.encode(addr,location,timeoutInSec)
+
+        -- UartMgr.publishMessage(r)
 
         LogUtil.d(TAG,TAG.." Deliver openLock,addr = "..string.toHex(addr))
         
@@ -285,21 +292,22 @@ function Deliver:handleContent( content )
             end
             
             -- 播放出货声音
-            local r = UARTPlayAudio.encode(UARTPlayAudio.OPENLOCK_AUDIO)
-            UartMgr.publishMessage(r)
+            -- local r = UARTPlayAudio.encode(UARTPlayAudio.OPENLOCK_AUDIO)
+            -- UartMgr.publishMessage(r)
         end
 end 
 
+
 -- 开锁的回调
 -- flagTable:二维数组
-function  openLockCallback(addr,flagsTable)
+function  openLockCallback(addr)
     -- 订单开锁，并且出货成功了，直接删除，否则还需要等待如下条件
     -- 如下条件，在定时中实现
     -- 1. 订单过期了，现在是30分钟
     -- 2. 同一location，产生了新的订单
 
     -- 从订单中查找，如果有的话，则上传相应的销售日志
-    if not addr or not flagsTable then
+    if not addr then
         return
     end
 
@@ -323,30 +331,30 @@ function  openLockCallback(addr,flagsTable)
                 --      0为初始化状态  1为出货成功   2为出货超时（在协议设定的时间内用户未操作，锁已恢复锁止状态）
                 
                 loc = tonumber(loc)
-                ok = UARTStatRep.isDeliverOK(loc)
+                ok = true--UARTStatRep.isDeliverOK(loc)
 
                 -- 锁曾经开过，则将其增加到订单状态中，下次不再更新
-                lockOpen = UARTStatRep.isLockOpen(loc)
-                if lockOpen then
-                    saleTable[LOCK_OPEN_STATE] = LOCK_STATE_OPEN
-                end
+                -- lockOpen = UARTStatRep.isLockOpen(loc)
+                -- if lockOpen then
+                --     saleTable[LOCK_OPEN_STATE] = LOCK_STATE_OPEN
+                -- end
 
-                -- 锁曾经开过，现在关上了，但是没出货
-                if LOCK_STATE_OPEN==saleTable[LOCK_OPEN_STATE] and not lockOpen and not ok then
-                        -- 上报超时日志
-                        LogUtil.d(TAG,TAG.." openLockCallback delivered timeout")
+                -- -- 锁曾经开过，现在关上了，但是没出货
+                -- if LOCK_STATE_OPEN==saleTable[LOCK_OPEN_STATE] and not lockOpen and not ok then
+                --         -- 上报超时日志
+                --         LogUtil.d(TAG,TAG.." openLockCallback delivered timeout")
 
-                        saleTable[CloudConsts.CTS]=os.time()
-                        saleTable[UPLOAD_POSITION]=UPLOAD_LOCK_TIMEOUT
-                        local saleLogHandler = UploadSaleLog:new()
-                        saleLogHandler:setMap(saleTable)
+                --         saleTable[CloudConsts.CTS]=os.time()
+                --         saleTable[UPLOAD_POSITION]=UPLOAD_LOCK_TIMEOUT
+                --         local saleLogHandler = UploadSaleLog:new()
+                --         saleLogHandler:setMap(saleTable)
                         
-                        saleLogHandler:send(CRBase.NOT_ROTATE)
+                --         saleLogHandler:send(CRBase.NOT_ROTATE)
 
-                        -- 添加到待删除列表中
-                        toRemove[key] = 1
-                        LogUtil.d(TAG,TAG.." add to to-remove tab,key = "..key)
-                end
+                --         -- 添加到待删除列表中
+                --         toRemove[key] = 1
+                --         LogUtil.d(TAG,TAG.." add to to-remove tab,key = "..key)
+                -- end
 
                 -- 出货成功了
                 if ok then

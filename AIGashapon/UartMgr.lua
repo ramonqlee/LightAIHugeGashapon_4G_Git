@@ -257,36 +257,36 @@ end
 
 function UartMgr.initSlaves( callback ,retry)
 
-	if not retry then
-		ids = UARTAllInfoRep.getAllBoardIds(false)
-		if ids and #ids > 0 then
-			LogUtil.d(TAG,"UartMgr.initSlaves done,size = "..#ids)
-			return
-		end 
-	end
-	LogUtil.d(TAG,"UartMgr.initSlaves")
+	-- if not retry then
+	-- 	ids = UARTAllInfoRep.getAllBoardIds(false)
+	-- 	if ids and #ids > 0 then
+	-- 		LogUtil.d(TAG,"UartMgr.initSlaves done,size = "..#ids)
+	-- 		return
+	-- 	end 
+	-- end
+	-- LogUtil.d(TAG,"UartMgr.initSlaves")
 
-	r = UARTGetAllInfo.encode()--获取所有板子id
-	if callback then
-		UARTAllInfoRep.setCallback(callback)
-	else
-		UARTAllInfoRep.setCallback(function( ids )
-			addr=""
-			ids = UARTAllInfoRep.getAllBoardIds(true)
-			for _,v in pairs(ids) do
-				if v then
-					addr = addr.." "..string.fromHex(v)
-				end
-			end
+	-- r = UARTGetAllInfo.encode()--获取所有板子id
+	-- if callback then
+	-- 	UARTAllInfoRep.setCallback(callback)
+	-- else
+	-- 	UARTAllInfoRep.setCallback(function( ids )
+	-- 		addr=""
+	-- 		ids = UARTAllInfoRep.getAllBoardIds(true)
+	-- 		for _,v in pairs(ids) do
+	-- 			if v then
+	-- 				addr = addr.." "..string.fromHex(v)
+	-- 			end
+	-- 		end
 
-			if addr or #addr>0 then
-				LogUtil.d(TAG,"UartMgr.initSlaves SlaveIDChain = "..addr)
-				return
-			end
-		end)
-	end
+	-- 		if addr or #addr>0 then
+	-- 			LogUtil.d(TAG,"UartMgr.initSlaves SlaveIDChain = "..addr)
+	-- 			return
+	-- 		end
+	-- 	end)
+	-- end
 
-	UartMgr.publishMessage(r)
+	-- UartMgr.publishMessage(r)
 end
 
 

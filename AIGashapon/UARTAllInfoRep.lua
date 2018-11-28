@@ -15,7 +15,7 @@ local SPLIT_CHAR = "_"
 
 UARTAllInfoRep = {MT = 0x93}
 
-local mAllBoardIds = {}
+local mAllBoardIds = {"000007"}
 local myCallback = nil
 
 function  UARTAllInfoRep.setCallback( callback )
