@@ -272,29 +272,25 @@ function run()
 
 	end,2*1000)
 		
-	
 	-- 启动一个延时定时器，防止没有回调时无法正常启动
-	-- candidateRunTimerId=sys.timerStart(function()
-	-- 	LogUtil.d(TAG,"start after timeout in retrieving slaves")
+	candidateRunTimerId=sys.timerStart(function()
+		LogUtil.d(TAG,"start after timeout in retrieving slaves")
 
-	-- 	if candidateRunTimerId and sys.timerIsActive(candidateRunTimerId) then
-	-- 		sys.timerStop(candidateRunTimerId)
-	-- 		candidateRunTimerId = nil
-	-- 	end
+		if candidateRunTimerId and sys.timerIsActive(candidateRunTimerId) then
+			sys.timerStop(candidateRunTimerId)
+			candidateRunTimerId = nil
+		end
 
-	-- 	if  boardIdentified < RETRY_BOARD_COUNT then 
-	-- 		retryIdentify()
-	-- 	end
+		-- if  boardIdentified < RETRY_BOARD_COUNT then 
+		-- 	retryIdentify()
+		-- end
 
-	-- 	if not mqttStarted then
-	-- 		mqttStarted = true
-	-- 		sys.taskInit(MQTTManager.startmqtt)
-	-- 	end
+		if not mqttStarted then
+			mqttStarted = true
+			sys.taskInit(MQTTManager.startmqtt)
+		end
 
-	-- 	LogUtil.d(TAG,"start twinkle task")
-	-- 	startTwinkleTask()
-
-	-- end,Consts.TEST_MODE and 5*1000 or 120*1000)  
+	end,5*1000)  
 end
 
 
