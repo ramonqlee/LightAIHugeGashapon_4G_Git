@@ -442,10 +442,8 @@ function Deliver:handleContent( content )
         HugeOpenLock.setDeliverCallback(device_seq,openLockCallback)
         HugeOpenLock.open()
         
-        -- UARTStatRep.setCallback(openLockCallback)
-        -- r = UARTControlInd.encode(addr,location,timeoutInSec)
-
-        -- UartMgr.publishMessage(r)
+        r = UARTControlInd.encode()
+        UartMgr.publishMessage(r)
 
         LogUtil.d(TAG,TAG.." Deliver openLock,addr = "..device_seq)
         
