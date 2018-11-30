@@ -7,9 +7,14 @@ require "pins"
 require "UARTUtils"
 require "LogUtil"
 
+local OPEN_VAL  = 0
+local CLOSE_VAL = 1
+
 --戳货检测
 local myCallback = nil
 local currentAddr = nil
+
+local wd= pins.setup(pio.P0_27,CLOSE_VAL)--函数
 
 local setGpio64Fnc = pins.setup(pio.P2_0,0)
 UARTControlInd={
@@ -20,6 +25,19 @@ function UARTControlInd.encode()
 	-- TODO待根据格式组装报文
  	return pack.pack("b",0x55)
 end  
+
+function UARTControlInd.open()
+	if not wd or "function"~= type(wd) then
+		return
+	end
+
+	LogUtil.d(TAG,"OpenLock")
+	wd(OPEN_VAL)
+	sys.timerStart(function()
+		wd(CLOSE_VAL)
+		LogUtil.d(TAG,"Close Lock")
+	end,50)
+end
 
 function UARTControlInd.setDeliverCallback( addr,callback )
 	myCallback = callback

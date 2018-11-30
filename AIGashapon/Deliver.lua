@@ -415,7 +415,9 @@ function Deliver:handleContent( content )
         -- 开锁，以及检测
         -- TODO 中断方式，进行回调
         UARTControlInd.setDeliverCallback(device_seq,openLockCallback)
-        r = UARTControlInd.encode()
+        
+        UARTControlInd.open()--兼容性方法，已经废弃
+        r = UARTControlInd.encode()--新的开锁方式
         UartMgr.publishMessage(r)
 
         LogUtil.d(TAG,TAG.." Deliver openLock,addr = "..device_seq)
