@@ -7,7 +7,6 @@
 require "Consts"
 require "LogUtil"
 require "UartMgr"
-require "UARTPlayAudio"
 require "CloudConsts"
 require "CBase"
 
@@ -73,9 +72,6 @@ function ScanQrCode:handleContent( content )
     lastLocation = location
     lastPurchaseTime = os.time()
 
-    --播放扫码声音
-    -- local r = UARTPlayAudio.encode(UARTPlayAudio.SCAN_AUDIO)
-	-- UartMgr.publishMessage(r)
 end   
 
 

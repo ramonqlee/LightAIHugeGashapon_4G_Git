@@ -7,10 +7,8 @@
 
 require "LogUtil"
 require "sys"
-require "UARTStatRep"
 require "UARTAllInfoRep"
 require "UARTBoardInfo"
-require "UARTGetAllInfo"
 
 local TAG = "UartMgr"
 UartMgr={
@@ -36,7 +34,6 @@ local function initProtocalStack(clear)
 	end
 
 	-- TODO 在此注册串口处理协议
-	protocalStack[#protocalStack+1]=UARTStatRep.handle
 	protocalStack[#protocalStack+1]=UARTAllInfoRep.handle
 	protocalStack[#protocalStack+1]=UARTBoardInfo.handle
 	
@@ -255,39 +252,6 @@ function UartMgr.close( devicePath )
 	-- uart.close(devicePath)
 end
 
-function UartMgr.initSlaves( callback ,retry)
-
-	-- if not retry then
-	-- 	ids = UARTAllInfoRep.getAllBoardIds(false)
-	-- 	if ids and #ids > 0 then
-	-- 		LogUtil.d(TAG,"UartMgr.initSlaves done,size = "..#ids)
-	-- 		return
-	-- 	end 
-	-- end
-	-- LogUtil.d(TAG,"UartMgr.initSlaves")
-
-	-- r = UARTGetAllInfo.encode()--获取所有板子id
-	-- if callback then
-	-- 	UARTAllInfoRep.setCallback(callback)
-	-- else
-	-- 	UARTAllInfoRep.setCallback(function( ids )
-	-- 		addr=""
-	-- 		ids = UARTAllInfoRep.getAllBoardIds(true)
-	-- 		for _,v in pairs(ids) do
-	-- 			if v then
-	-- 				addr = addr.." "..string.fromHex(v)
-	-- 			end
-	-- 		end
-
-	-- 		if addr or #addr>0 then
-	-- 			LogUtil.d(TAG,"UartMgr.initSlaves SlaveIDChain = "..addr)
-	-- 			return
-	-- 		end
-	-- 	end)
-	-- end
-
-	-- UartMgr.publishMessage(r)
-end
 
 
 

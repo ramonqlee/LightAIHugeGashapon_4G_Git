@@ -16,7 +16,6 @@ require "msgcache"
 require "Config"
 require "LogUtil"
 require "UartMgr"
-require "Lightup"
 require "NodeIdConfig"
 require "GetMachVars"
 require "ScanQrCode"
@@ -137,14 +136,12 @@ function checkMQTTUser()
     username = MyUtils.getUserName(false)
     password = MyUtils.getPassword(false)
     while not username or 0==#username or not password or 0==#password do
-         -- mywd.feed()--获取配置中，别忘了喂狗，否则会重启
         getNodeIdAndPasswordFromServer()
         
         sys.wait(RETRY_TIME)
         username = MyUtils.getUserName(false)
         password = MyUtils.getPassword(false)
 
-         -- mywd.feed()--获取配置中，别忘了喂狗，否则会重启
         if username and password then
             LogUtil.d(TAG,".............................startmqtt retry to username="..username.." and ver=".._G.VERSION)
             MyUtils.saveUserName(username)
@@ -189,7 +186,6 @@ end
 function connectMQTT()
     local mqttFailCount = 0
     while not mqttc:connect(ADDR,PORT) do
-        -- mywd.feed()--获取配置中，别忘了喂狗，否则会重启
         LogUtil.d(TAG,"fail to connect mqtt,mqttc:disconnect,try after 10s")
         mqttc:disconnect()
         
@@ -450,7 +446,6 @@ function startmqtt()
         mMqttProtocolHandlerPool[#mMqttProtocolHandlerPool+1]=SetConfig:new(nil)
         mMqttProtocolHandlerPool[#mMqttProtocolHandlerPool+1]=GetMachVars:new(nil)
         mMqttProtocolHandlerPool[#mMqttProtocolHandlerPool+1]=Deliver:new(nil)
-        mMqttProtocolHandlerPool[#mMqttProtocolHandlerPool+1]=Lightup:new(nil)
         mMqttProtocolHandlerPool[#mMqttProtocolHandlerPool+1]=ScanQrCode:new(nil)
 
         local topics = {}

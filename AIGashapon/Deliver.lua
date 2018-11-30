@@ -10,7 +10,6 @@ require "UartMgr"
 require "UARTUtils"
 require "CloudConsts"
 require "UARTControlInd"
-require "UARTPlayAudio"
 require "CBase"
 require "RepDeliver"
 require "UploadSaleLog"
@@ -110,30 +109,7 @@ function  openLockCallback(addr)
                 --      0为初始化状态  1为出货成功   2为出货超时（在协议设定的时间内用户未操作，锁已恢复锁止状态）
                 
                 loc = tonumber(loc)
-                ok = true--UARTStatRep.isDeliverOK(loc)
-
-                -- 锁曾经开过，则将其增加到订单状态中，下次不再更新
-                -- lockOpen = UARTStatRep.isLockOpen(loc)
-                -- if lockOpen then
-                --     saleTable[LOCK_OPEN_STATE] = LOCK_STATE_OPEN
-                -- end
-
-                -- -- 锁曾经开过，现在关上了，但是没出货
-                -- if LOCK_STATE_OPEN==saleTable[LOCK_OPEN_STATE] and not lockOpen and not ok then
-                --         -- 上报超时日志
-                --         LogUtil.d(TAG,TAG.." openLockCallback delivered timeout")
-
-                --         saleTable[CloudConsts.CTS]=os.time()
-                --         saleTable[UPLOAD_POSITION]=UPLOAD_LOCK_TIMEOUT
-                --         local saleLogHandler = UploadSaleLog:new()
-                --         saleLogHandler:setMap(saleTable)
-                        
-                --         saleLogHandler:send(CRBase.NOT_ROTATE)
-
-                --         -- 添加到待删除列表中
-                --         toRemove[key] = 1
-                --         LogUtil.d(TAG,TAG.." add to to-remove tab,key = "..key)
-                -- end
+                ok = true
 
                 -- 出货成功了
                 if ok then
@@ -458,9 +434,6 @@ function Deliver:handleContent( content )
                 LogUtil.d(TAG,TAG.." timer_loop_start id ="..mTimerId)
             end
             
-            -- 播放出货声音
-            -- local r = UARTPlayAudio.encode(UARTPlayAudio.OPENLOCK_AUDIO)
-            -- UartMgr.publishMessage(r)
         end
 end 
 
