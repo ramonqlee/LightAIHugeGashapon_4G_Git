@@ -16,7 +16,6 @@ require "RepDeliver"
 require "UploadSaleLog"
 require "CRBase"
 require "UploadDetect"
-require "HugeOpenLock"
 
 local jsonex = require "jsonex"
 local TAG = "Deliver"
@@ -439,9 +438,7 @@ function Deliver:handleContent( content )
 
         -- 开锁，以及检测
         -- TODO 中断方式，进行回调
-        HugeOpenLock.setDeliverCallback(device_seq,openLockCallback)
-        HugeOpenLock.open()
-        
+        UARTControlInd.setDeliverCallback(device_seq,openLockCallback)
         r = UARTControlInd.encode()
         UartMgr.publishMessage(r)
 
