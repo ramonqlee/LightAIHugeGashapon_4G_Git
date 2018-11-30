@@ -113,7 +113,7 @@ function getNodeIdAndPasswordFromServer()
     LogUtil.d(TAG,"url = "..url)
     http.request("GET",url,nil,nil,nil,nil,function(result,prompt,head,body )
         if result and body then
-            LogUtil.d(TAG,"http config body="..body)
+            -- LogUtil.d(TAG,"http config body="..body)
             bodyJson = jsonex.decode(body)
 
             if bodyJson then
