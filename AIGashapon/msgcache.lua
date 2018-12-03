@@ -54,8 +54,8 @@ function msgcache.remove(sn)
     LogUtil.d(TAG,sn.."reduce queue's sn = "..sn.." new size="..#mqttMsgSet)
 end
 
-function msgcache.hasMessage( sn )
-    if not sn or "string"~=type(sn) then
+function msgcache.hasMessage( msg )
+    if not msg or "string"~=type(msg) then
         return false
     end
 
@@ -69,6 +69,37 @@ function msgcache.hasMessage( sn )
     if not mqttMsgSet then
         return
     end  
+
+    local tableObj = msg
+    if "string"==type(tableObj) then
+        tableObj = jsonex.decode(msg)
+    end
+
+    if not tableObj or "table"~=type(tableObj) then
+        return r
+    end
+
+    local payload = tableObj[CloudConsts.PAYLOAD]
+    if "string"==type(payload) then
+      payload = jsonex.decode(payload)
+    end
+
+    if not payload or "table" ~= type(payload) then
+        return r
+    end
+
+
+    local content = payload[CloudConsts.CONTENT]
+    if not content or "table" ~= type(content) then
+        LogUtil.d(TAG,"illegal content,return")
+        return r
+    end
+
+    local sn = content[CloudConsts.SN]
+    if not sn or "string"~= type(sn) then
+        LogUtil.d(TAG,"no sn,no cache")
+        return true--不缓存，直接向下传递
+    end
 
     local existed = false
     for i=#mqttMsgSet,1,-1 do
@@ -101,11 +132,11 @@ function msgcache.addMsg2Cache(msg)
     local payload = tableObj[CloudConsts.PAYLOAD]
     if "string"==type(payload) then
       payload = jsonex.decode(payload)
-  end
+    end
 
-  if not payload or "table" ~= type(payload) then
-    return r
-  end
+    if not payload or "table" ~= type(payload) then
+        return r
+    end
 
 
     local content = payload[CloudConsts.CONTENT]
@@ -139,7 +170,7 @@ function msgcache.addMsg2Cache(msg)
          break
         end
     end
-    LogUtil.d(TAG,jsonex.encode(content).."added, queue size = "..#mqttMsgSet)
+    LogUtil.d(TAG,jsonex.encode(content).." added, queue size = "..#mqttMsgSet)
 
     local updated = false
     --不存在的话，则记录下

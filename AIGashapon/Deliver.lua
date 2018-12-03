@@ -340,11 +340,6 @@ function Deliver:handleContent( content )
         return
     end
 
-    if msgcache.hasMessage(sn) then
-        LogUtil.d(TAG," duplicate order,ignore sn ="..sn.." orderId = "..orderId)
-        return
-    end
-
     local map={}
     map[CloudConsts.SN] = sn
     map[CloudConsts.ONLINE_ORDER_ID]= orderId

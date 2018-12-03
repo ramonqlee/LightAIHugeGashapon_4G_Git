@@ -332,7 +332,7 @@ function loopPreviousMessage( mqttProtocolHandlerPool )
             break
         end
 
-        if r and data then
+        if r and data and not msgcache.hasMessage(data) then
             -- 去除重复的sn消息
             if msgcache.addMsg2Cache(data) then
                 for k,v in pairs(mqttProtocolHandlerPool) do
@@ -374,7 +374,7 @@ function loopMessage(mqttProtocolHandlerPool)
             break
         end
 
-        if r and data then
+        if r and data and not msgcache.hasMessage(data) then
             -- 去除重复的sn消息
             if msgcache.addMsg2Cache(data) then
                 for k,v in pairs(mqttProtocolHandlerPool) do
