@@ -91,17 +91,14 @@ function msgcache.hasMessage( msg )
 
     local content = payload[CloudConsts.CONTENT]
     if not content or "table" ~= type(content) then
-        LogUtil.d(TAG,"illegal content,return")
         return false
     end
 
     local sn = content[CloudConsts.SN]
     if not sn or "string"~= type(sn) then
-        LogUtil.d(TAG,"no sn,no cache")
-        return true--不缓存，直接向下传递
+        return false
     end
 
-    local existed = false
     for i=#mqttMsgSet,1,-1 do
         if mqttMsgSet[i] == sn then
             return true
