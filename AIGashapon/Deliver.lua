@@ -342,6 +342,7 @@ function Deliver:handleContent( content )
     local map={}
     map[CloudConsts.SN] = sn
     map[CloudConsts.ONLINE_ORDER_ID]= orderId
+    map[CloudConsts.KEEP_SN]=CloudConsts.KEEP_SN
 
     if arriveTime then
         map[CloudConsts.ARRIVE_TIME]= arriveTime    

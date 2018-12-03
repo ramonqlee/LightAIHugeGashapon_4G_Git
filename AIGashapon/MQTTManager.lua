@@ -258,7 +258,10 @@ function publishMessageQueue(maxMsgPerRequest)
                 local content = payload[CloudConsts.CONTENT]
                 if content or "table" == type(content) then
                     local sn = content[CloudConsts.SN]
-                    msgcache.remove(sn)
+                    local keepSn = content[CloudConsts.KEEP_SN]
+                    if not keepSn then
+                        msgcache.remove(sn)
+                    end
                 end
             end
 
