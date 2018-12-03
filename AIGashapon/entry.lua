@@ -66,6 +66,8 @@ end
 function run()
 	startTimedTask()
 	
+    rtos.make_dir(Consts.USER_DIR)--make sure directory exist
+
 	-- 启动一个延时定时器, 获取板子id
 	LogUtil.d(TAG,"app start now")
 	timerId = sys.timerStart(function()
