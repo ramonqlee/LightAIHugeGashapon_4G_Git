@@ -253,16 +253,14 @@ function publishMessageQueue(maxMsgPerRequest)
             if r then
                 toRemove[key]=1
 
-                LogUtil.d(TAG,"publish payload= "..payload)
-                payload = jsonex.decode(payload)
-                local content = payload[CloudConsts.CONTENT]
-                if content or "table" == type(content) then
-                    local sn = content[CloudConsts.SN]
-                    local keepSn = content[CloudConsts.KEEP_SN]
-                    if not keepSn then
-                        msgcache.remove(sn)
-                    end
-                end
+                LogUtil.d(TAG,"published payload= "..payload)
+                -- payload = jsonex.decode(payload)
+                -- local content = payload[CloudConsts.CONTENT]
+                -- if content or "table" == type(content) then
+                    -- local sn = content[CloudConsts.SN]
+                    -- do not remove,it will overwrite auto
+                    -- msgcache.remove(sn)
+                -- end
             end
 
             count = count+1

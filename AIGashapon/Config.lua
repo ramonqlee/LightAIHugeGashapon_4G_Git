@@ -14,9 +14,9 @@ local TAG = "Config"
 Config = {}
 
 if Consts.DEVICE_ENV then
-	Config.CONFIG_FILE = Consts.USER_DIR.."/niuqu_config.dat"
+	Config.CONFIG_FILE = Consts.USER_DIR.."/nqconfig.txt"
 else
-	Config.CONFIG_FILE = "niuqu_config.dat"
+	Config.CONFIG_FILE = "niuqu_config.txt"
 end
 
 function Config.getValue(key)

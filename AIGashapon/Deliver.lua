@@ -14,6 +14,7 @@ require "CBase"
 require "RepDeliver"
 require "UploadSaleLog"
 require "CRBase"
+require "msgcache"
 require "UploadDetect"
 
 local jsonex = require "jsonex"
@@ -339,10 +340,14 @@ function Deliver:handleContent( content )
         return
     end
 
+    if msgcache.hasMessage(sn) then
+        LogUtil.d(TAG," duplicate order,ignore sn ="..sn.." orderId = "..orderId)
+        return
+    end
+
     local map={}
     map[CloudConsts.SN] = sn
     map[CloudConsts.ONLINE_ORDER_ID]= orderId
-    map[CloudConsts.KEEP_SN]=CloudConsts.KEEP_SN
 
     if arriveTime then
         map[CloudConsts.ARRIVE_TIME]= arriveTime    
