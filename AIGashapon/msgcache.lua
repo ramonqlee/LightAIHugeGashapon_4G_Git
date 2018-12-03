@@ -59,7 +59,6 @@ function msgcache.hasMessage( sn )
         return false
     end
 
-    LogUtil.d(TAG,"start to remove msg,sn ="..sn)
     --从文件中提取历史消息，然后进行追加
     local mqttMsgSet = {}
     local allset = Config.getValue(SN_SET_PERSISTENCE_KEY)
