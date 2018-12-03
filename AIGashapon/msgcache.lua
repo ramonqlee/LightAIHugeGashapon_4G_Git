@@ -67,7 +67,7 @@ function msgcache.hasMessage( msg )
     end 
 
     if not mqttMsgSet then
-        return
+        return false
     end  
 
     local tableObj = msg
@@ -76,7 +76,7 @@ function msgcache.hasMessage( msg )
     end
 
     if not tableObj or "table"~=type(tableObj) then
-        return r
+        return false
     end
 
     local payload = tableObj[CloudConsts.PAYLOAD]
@@ -85,14 +85,14 @@ function msgcache.hasMessage( msg )
     end
 
     if not payload or "table" ~= type(payload) then
-        return r
+        return false
     end
 
 
     local content = payload[CloudConsts.CONTENT]
     if not content or "table" ~= type(content) then
         LogUtil.d(TAG,"illegal content,return")
-        return r
+        return false
     end
 
     local sn = content[CloudConsts.SN]
