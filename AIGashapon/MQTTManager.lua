@@ -246,14 +246,13 @@ function publishMessageQueue(maxMsgPerRequest)
         payload = msg.payload
 
         if topic and payload  then
-            LogUtil.d(TAG,"publish topic="..topic.." queue size = "..MyUtils.getTableLen(toPublishMessages))
             local r = mqttc:publish(topic,payload,QOS,RETAIN)
             
             -- 添加到待删除队列
             if r then
                 toRemove[key]=1
 
-                LogUtil.d(TAG,"published payload= "..payload)
+                LogUtil.d(TAG,"publish topic="..topic.." payload= "..payload)
                 -- payload = jsonex.decode(payload)
                 -- local content = payload[CloudConsts.CONTENT]
                 -- if content or "table" == type(content) then

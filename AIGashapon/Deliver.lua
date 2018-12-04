@@ -192,9 +192,9 @@ function TimerFunc(id)
            -- 是否超时了
            orderTimeoutTime=saleTable[Deliver.ORDER_TIMEOUT_TIME_IN_SEC]
            if orderTimeoutTime then
-               LogUtil.d(TAG,"TimeoutTable orderId = "..orderId.." seq = "..seq.." loc="..loc.." timeout at "..orderTimeoutTime.." nowTime = "..systemTime)
+               local lastOpenLockOrderId = Config.getValue(LAST_OPEN_LOCK_OID)
+               LogUtil.d(TAG,"TimeoutTable orderId = "..orderId.." lastOpenLockOrderId="..lastOpenLockOrderId.." timeout at "..orderTimeoutTime.." nowTime = "..systemTime)
                if systemTime > orderTimeoutTime or orderTimeoutTime-systemTime>ORDER_EXPIRED_SPAN then
-                LogUtil.d(TAG,TAG.."in TimerFunc timeouted orderId ="..orderId)
                 
                 --上传超时，如果已经上传过，则不再上传
                 if not saleTable[UPLOAD_POSITION] then
@@ -205,7 +205,10 @@ function TimerFunc(id)
                     saleLogHandler:setMap(saleTable)
 
                     --如果是最近一次开锁成功的，上报成功，否则上报超时
-                    local lastOpenLockOrderId = Config.getValue(LAST_OPEN_LOCK_OID)
+                    if lastOpenLockOId then
+                        LogUtil.d(TAG,TAG.."in TimerFunc timeout orderId ="..orderId.." lastOpenLockOId="..lastOpenLockOId)
+                    end
+
                     local s = CRBase.NOT_ROTATE
                     if orderId == lastOpenLockOId then
                         s = CRBase.SUCCESS
@@ -432,7 +435,7 @@ function Deliver:handleContent( content )
             r = UARTControlInd.encode()--新的开锁方式
             UartMgr.publishMessage(r)
             Config.saveValue(LAST_OPEN_LOCK_OID,orderId)--更新开锁成功的订单号
-            
+
             LogUtil.d(TAG,TAG.." Deliver openLock,addr = "..device_seq)
         else
             LogUtil.d(TAG,TAG.." Deliver lock opened before,orderId = "..orderId)
@@ -441,7 +444,7 @@ function Deliver:handleContent( content )
         local key = device_seq.."_"..location
         gBusyMap[key]=saleLogMap
 
-        -- LogUtil.d(TAG,TAG.." add to gBusyMap len="..getTableLen(gBusyMap))
+        LogUtil.d(TAG,TAG.." add to gBusyMap orderId="..orderId.." newLen="..getTableLen(gBusyMap))
 
         if Consts.DEVICE_ENV then
             --start timer monitor already
