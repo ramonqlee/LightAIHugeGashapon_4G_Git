@@ -4,21 +4,19 @@
 -- @release 2018.2.8
 
 require "LogUtil"
-require "ConfigEx"
+require "Config"
 
 local jsonex = require "jsonex"
 
 local MAX_MQTT_CACHE_COUNT = 15--缓存的最大数量
 local DECR_MQTT_CACHE_COUNT = 5--超过条数后，每次删除的数量
 local SN_SET_PERSISTENCE_KEY="msg_sn_set"
-CONFIG_FILE = Consts.USER_DIR.."/msgcache.txt"
 
 local TAG = "MSGCACHE"
 
 msgcache={}
-
 function msgcache.clear()
-    ConfigEx.saveValue(CONFIG_FILE,SN_SET_PERSISTENCE_KEY,"")
+    Config.saveValue(SN_SET_PERSISTENCE_KEY,"")
     LogUtil.d(TAG,"clear msgcache")
 end
 
@@ -31,7 +29,7 @@ function msgcache.remove(sn)
     LogUtil.d(TAG,"start to remove msg,sn ="..sn)
     --从文件中提取历史消息，然后进行追加
     local mqttMsgSet = {}
-    local allset = ConfigEx.getValue(CONFIG_FILE,SN_SET_PERSISTENCE_KEY)
+    local allset = Config.getValue(SN_SET_PERSISTENCE_KEY)
     if allset and "string"==type(allset) and #allset>0 then
         mqttMsgSet = jsonex.decode(allset)
     end 
@@ -52,7 +50,7 @@ function msgcache.remove(sn)
         return
     end
 
-    ConfigEx.saveValue(CONFIG_FILE,SN_SET_PERSISTENCE_KEY,jsonex.encode(mqttMsgSet))
+    Config.saveValue(SN_SET_PERSISTENCE_KEY,jsonex.encode(mqttMsgSet))
     LogUtil.d(TAG,sn.."reduce queue's sn = "..sn.." new size="..#mqttMsgSet)
 end
 
@@ -63,7 +61,7 @@ function msgcache.hasMessage( msg )
 
     --从文件中提取历史消息，然后进行追加
     local mqttMsgSet = {}
-    local allset = ConfigEx.getValue(CONFIG_FILE,SN_SET_PERSISTENCE_KEY)
+    local allset = Config.getValue(SN_SET_PERSISTENCE_KEY)
     if allset and "string"==type(allset) and #allset>0 then
         mqttMsgSet = jsonex.decode(allset)
     end 
@@ -152,7 +150,7 @@ function msgcache.addMsg2Cache(msg)
 
     --从文件中提取历史消息，然后进行追加
     local mqttMsgSet = {}
-    local allset = ConfigEx.getValue(CONFIG_FILE,SN_SET_PERSISTENCE_KEY)
+    local allset = Config.getValue(SN_SET_PERSISTENCE_KEY)
     if allset and "string"==type(allset) and #allset>0 then
         mqttMsgSet = jsonex.decode(allset)
     end 
@@ -193,7 +191,7 @@ function msgcache.addMsg2Cache(msg)
 
     --是否需要更新文件
     if updated then
-         ConfigEx.saveValue(CONFIG_FILE,SN_SET_PERSISTENCE_KEY,jsonex.encode(mqttMsgSet))
+         Config.saveValue(SN_SET_PERSISTENCE_KEY,jsonex.encode(mqttMsgSet))
          LogUtil.d(TAG,sn.." update queue,size="..#mqttMsgSet)
     end
 
