@@ -54,11 +54,12 @@ function msgcache.remove(sn)
     LogUtil.d(TAG,sn.."reduce queue's sn = "..sn.." new size="..#mqttMsgSet)
 end
 
-function msgcache.hasMessage( msg )
-    if not msg then
+function msgcache.hasMessage( sn )
+    if not sn or "string"~=type(sn) then
         return false
     end
 
+    LogUtil.d(TAG,"start to remove msg,sn ="..sn)
     --从文件中提取历史消息，然后进行追加
     local mqttMsgSet = {}
     local allset = Config.getValue(SN_SET_PERSISTENCE_KEY)
@@ -67,41 +68,12 @@ function msgcache.hasMessage( msg )
     end 
 
     if not mqttMsgSet then
-        return false
+        return
     end  
 
-    local tableObj = msg
-    if "string"==type(tableObj) then
-        tableObj = jsonex.decode(msg)
-    end
-
-    if not tableObj or "table"~=type(tableObj) then
-        return false
-    end
-
-    local payload = tableObj[CloudConsts.PAYLOAD]
-    if "string"==type(payload) then
-      payload = jsonex.decode(payload)
-    end
-
-    if not payload or "table" ~= type(payload) then
-        return false
-    end
-
-
-    local content = payload[CloudConsts.CONTENT]
-    if not content or "table" ~= type(content) then
-        return false
-    end
-
-    local sn = content[CloudConsts.SN]
-    if not sn or "string"~= type(sn) then
-        return false
-    end
-
+    local existed = false
     for i=#mqttMsgSet,1,-1 do
         if mqttMsgSet[i] == sn then
-            LogUtil.d(TAG," msgcache.hasMessage,sn = "..sn)
             return true
         end
     end
@@ -130,11 +102,11 @@ function msgcache.addMsg2Cache(msg)
     local payload = tableObj[CloudConsts.PAYLOAD]
     if "string"==type(payload) then
       payload = jsonex.decode(payload)
-    end
+  end
 
-    if not payload or "table" ~= type(payload) then
-        return r
-    end
+  if not payload or "table" ~= type(payload) then
+    return r
+  end
 
 
     local content = payload[CloudConsts.CONTENT]
@@ -165,17 +137,18 @@ function msgcache.addMsg2Cache(msg)
         if value == sn then
          LogUtil.d(TAG,sn.." duplicate sn in queue,sn="..sn)
          existed = true
+         r = true
          break
         end
     end
-    LogUtil.d(TAG,jsonex.encode(content).." added, queue size = "..#mqttMsgSet)
-
+    
     local updated = false
     --不存在的话，则记录下
     if not existed then
         mqttMsgSet[#mqttMsgSet+1]=sn
         r = true
         updated = true
+        LogUtil.d(TAG,jsonex.encode(content).."added, queue size = "..#mqttMsgSet)
     end
 
     --缓存数量超了，删除最早加入的那些

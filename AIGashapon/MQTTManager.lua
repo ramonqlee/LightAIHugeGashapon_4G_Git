@@ -309,11 +309,29 @@ function publish(topic, payload)
     msg={}
     msg.topic=topic
     msg.payload=payload
-    toPublishMessages[crypto.md5(payload,#payload)]=msg
-    
-    -- TODO 修改为持久化方式，发送消息
 
-    LogUtil.d(TAG,"add to publish queue,topic="..topic.." toPublishMessages len="..MyUtils.getTableLen(toPublishMessages))
+
+    local payloadTab = payload
+    if "string"==type(payload) then
+      payloadTab = jsonex.decode(payload)
+    end
+
+    if not payloadTab or "table" ~= type(payloadTab) then
+      return
+    end
+
+    local content = payloadTab[CloudConsts.CONTENT]
+    if not content or "table" ~= type(content) then
+        return
+    end
+
+    local sn = content[CloudConsts.SN]
+    if not sn or "string"~= type(sn) then
+        return
+    end
+
+    toPublishMessages[sn]=msg
+    LogUtil.d(TAG,"add to publish queue,topic="..topic.." sn = "..sn.." toPublishMessages len="..MyUtils.getTableLen(toPublishMessages))
 end
 
 
@@ -332,7 +350,9 @@ function loopPreviousMessage( mqttProtocolHandlerPool )
             break
         end
 
-        if r and data  then
+        publishMessageQueue(MAX_MSG_CNT_PER_REQ)--发送一条消息
+        
+        if r and data then
             -- 去除重复的sn消息
             if msgcache.addMsg2Cache(data) then
                 for k,v in pairs(mqttProtocolHandlerPool) do
@@ -432,6 +452,8 @@ function startmqtt()
         return
     end
 
+    msgcache.clear()--清理缓存的消息数据
+
     while true do
         --检查网络，网络不可用时，会重启机器
         checkNetwork()
@@ -463,7 +485,7 @@ function startmqtt()
             connectMQTT()
             mqttc:disconnect()
 
-            -- msgcache.clear()
+            msgcache.clear()
             emptyMessageQueue()
             emptyExtraRequest()
             reconnectCount = 0
