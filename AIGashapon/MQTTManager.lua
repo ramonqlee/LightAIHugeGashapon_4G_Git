@@ -342,7 +342,7 @@ function loopPreviousMessage( mqttProtocolHandlerPool )
                     end
                 end
             else
-                log.info(TAG, "loopPreviousMessage dup msg,data="..data)
+                log.info(TAG, "loopPreviousMessage dup msg")
             end
         else
             log.info(TAG, "loopPreviousMessage no more msg")
