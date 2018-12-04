@@ -15,7 +15,7 @@ local DECR_MQTT_CACHE_COUNT = 5--超过条数后，每次删除的数量
 local SN_SET_PERSISTENCE_KEY="sncache"
 
 local inited = false
-local TAG = "MSGCACHE"
+local TAG = "SnCache"
 local memCache = {}
 SnCache={}
 
@@ -122,6 +122,12 @@ function SnCache.addMsg2Cache(msg)
         LogUtil.d(TAG,sn.." no sn,ignore")
         return false
     end
+
+    if memCache[sn] then
+        LogUtil.d(TAG,"SnCache.addMsg2Cache dup sn="..sn)
+        return
+    end
+
     memCache[sn]=sn
 
     --是否需要更新文件

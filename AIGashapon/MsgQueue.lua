@@ -60,7 +60,12 @@ function MsgQueue.add(sn,msg)
         return
     end
     MsgQueue.init()
+    if memCache[sn] then
+        LogUtil.d(TAG,"MsgQueue.add  dup sn = "..sn)
+        return
+    end
 
+    LogUtil.d(TAG," MsgQueue.add sn= "..sn)
     memCache[sn]=msg
     ConfigEx.saveValue(CONFIG_FILE,MSGQUEUE_KEY,jsonex.encode(memCache))
     LogUtil.d(TAG,"after addition,size = "..MsgQueue.size().." sn="..sn)
@@ -81,6 +86,7 @@ function MsgQueue.init()
         memCache = {}
     end 
     inited = true
+    LogUtil.d(TAG," MsgQueue.init")
 end
 
 

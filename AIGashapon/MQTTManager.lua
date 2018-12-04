@@ -258,13 +258,12 @@ function publishMessageQueue(maxMsgPerRequest)
                 toRemove[key]=1
 
                 LogUtil.d(TAG,"published payload= "..payload)
-                -- payload = jsonex.decode(payload)
-                -- local content = payload[CloudConsts.CONTENT]
-                -- if content or "table" == type(content) then
-                    -- local sn = content[CloudConsts.SN]
-                    -- do not remove,it will overwrite auto
-                    -- SnCache.remove(sn)
-                -- end
+                payload = jsonex.decode(payload)
+                local content = payload[CloudConsts.CONTENT]
+                if content or "table" == type(content) then
+                    local sn = content[CloudConsts.SN]
+                    SnCache.remove(sn)
+                end
             end
 
             count = count+1
@@ -309,11 +308,26 @@ end
 
 function publish(topic, payload)
     -- TODO 添加到消息队列
-    
+    if not topic or not payload then
+        return
+    end
+
     msg={}
     msg.topic=topic
     msg.payload=payload
-    MsgQueue.add(crypto.md5(payload,#payload),msg)
+
+    local content = payload[CloudConsts.CONTENT]
+    if not content or "table" ~= type(content) then
+        return
+    end
+
+    local sn = content[CloudConsts.SN]
+
+    if not sn or "string"~= type(sn) then
+        return
+    end
+
+    MsgQueue.add(sn,msg)
     -- TODO 修改为持久化方式，发送消息
 
     LogUtil.d(TAG,"add to publish queue,topic="..topic)
