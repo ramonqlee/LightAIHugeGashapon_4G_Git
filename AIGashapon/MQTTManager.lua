@@ -24,6 +24,7 @@ require "GetTime"
 require "RepTime"
 require "SetConfig"
 require "MyUtils"
+require "MsgQueue"
 
 local jsonex = require "jsonex"
 
@@ -40,7 +41,6 @@ local CLIENT_COMMAND_TIMEOUT = 5000
 local CLIENT_COMMAND_SHORT_TIMEOUT = 1000
 local MAX_MSG_CNT_PER_REQ = 1--每次最多发送的消息数
 local mqttc = nil
-local toPublishMessages={}
 
 local TAG = "MQTTManager"
 local reconnectCount = 0
@@ -58,7 +58,8 @@ function emptyExtraRequest()
 end 
 
 function emptyMessageQueue()
-      toPublishMessages={}
+    -- TODO 清理所有的消息
+    MsgQueue.clear()
 end
 
 function timeSync()
@@ -209,13 +210,14 @@ function connectMQTT()
 end
 
 function hasMessage()
-    return toPublishMessages and  0~= MyUtils.getTableLen(toPublishMessages)
+    return MsgQueue.hasMessage()
 end
 
 --控制每次调用，发送的消息数，防止发送消息，影响了收取消息
 function publishMessageQueue(maxMsgPerRequest)
+    -- TODO 发送消息
     -- 在此发送消息,避免在不同coroutine中发送的bug
-    if not toPublishMessages or 0 == MyUtils.getTableLen(toPublishMessages) then
+    if not MsgQueue.hasMessage() then
         LogUtil.d(TAG,"publish message queue is empty")
         return
     end
@@ -241,6 +243,8 @@ function publishMessageQueue(maxMsgPerRequest)
 
     local toRemove={}
     local count=0
+    local toPublishMessages= MsgQueue.getQueue()
+
     for key,msg in pairs(toPublishMessages) do
         topic = msg.topic
         payload = msg.payload
@@ -274,7 +278,7 @@ function publishMessageQueue(maxMsgPerRequest)
     -- 清除已经成功的消息
     for key,_ in pairs(toRemove) do
         if key then
-            toPublishMessages[key]=nil
+            MsgQueue.remove(key)
         end
     end
 
@@ -304,16 +308,15 @@ function handleRequst()
 end
 
 function publish(topic, payload)
-    toPublishMessages=toPublishMessages or{}
+    -- TODO 添加到消息队列
     
     msg={}
     msg.topic=topic
     msg.payload=payload
-    toPublishMessages[crypto.md5(payload,#payload)]=msg
-    
+    MsgQueue.add(crypto.md5(payload,#payload),msg)
     -- TODO 修改为持久化方式，发送消息
 
-    LogUtil.d(TAG,"add to publish queue,topic="..topic.." toPublishMessages len="..MyUtils.getTableLen(toPublishMessages))
+    LogUtil.d(TAG,"add to publish queue,topic="..topic)
 end
 
 
@@ -464,7 +467,7 @@ function startmqtt()
             mqttc:disconnect()
 
             -- msgcache.clear()
-            emptyMessageQueue()
+            -- emptyMessageQueue()
             emptyExtraRequest()
             reconnectCount = 0
             LogUtil.d(TAG,".............................startmqtt CLEANSESSION all ".." reconnectCount = "..reconnectCount)
