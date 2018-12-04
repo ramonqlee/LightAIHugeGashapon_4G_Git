@@ -57,7 +57,7 @@ function SnCache.remove(sn)
     memCache[sn]=nil
 
     ConfigEx.saveValue(CONFIG_FILE,SN_SET_PERSISTENCE_KEY,jsonex.encode(memCache))
-    LogUtil.d(TAG,sn.."reduce queue's sn = "..sn.." new size="..MyUtils.getTableLen(memCache))
+    LogUtil.d(TAG,sn.."reduce queue's sn = "..sn.." new size="..MyUtils.getTableLen(memCache).." sn ="..sn)
 end
 
 function SnCache.getMessageSn( msg )
@@ -126,7 +126,7 @@ function SnCache.addMsg2Cache(msg)
 
     --是否需要更新文件
     ConfigEx.saveValue(CONFIG_FILE,SN_SET_PERSISTENCE_KEY,jsonex.encode(memCache))
-    LogUtil.d(TAG,sn.." update queue,size="..MyUtils.getTableLen(memCache))
+    LogUtil.d(TAG,sn.." update queue,size="..MyUtils.getTableLen(memCache).." sn ="..sn)
 
     return true
 end     

@@ -10,7 +10,7 @@ require "MyUtils"
 local jsonex = require "jsonex"
 
 local CONFIG_FILE = Consts.USER_DIR.."/msgqueue.data"
-local MAX_MQTT_CACHE_COUNT = 30--缓存的最大数量
+local MAX_MQTT_CACHE_COUNT = 15--缓存的最大数量
 local DECR_MQTT_CACHE_COUNT = 5--超过条数后，每次删除的数量
 local MSGQUEUE_KEY="msgqueue"
 
@@ -51,7 +51,7 @@ function MsgQueue.remove(sn)
 
     memCache[sn]=nil
     ConfigEx.saveValue(CONFIG_FILE,MSGQUEUE_KEY,jsonex.encode(memCache))
-    LogUtil.d(TAG,"after removing,size = "..MsgQueue.size())
+    LogUtil.d(TAG,"after removing,size = "..MsgQueue.size().." sn ="..sn)
 end
 
 --添加到msg缓存,如果不存在，则返回true；如果已经存在，则返回false
@@ -63,7 +63,7 @@ function MsgQueue.add(sn,msg)
 
     memCache[sn]=msg
     ConfigEx.saveValue(CONFIG_FILE,MSGQUEUE_KEY,jsonex.encode(memCache))
-    LogUtil.d(TAG,"after addition,size = "..MsgQueue.size())
+    LogUtil.d(TAG,"after addition,size = "..MsgQueue.size().." sn="..sn)
 end   
 
 function MsgQueue.init()
