@@ -55,7 +55,7 @@ function msgcache.remove(sn)
 end
 
 function msgcache.hasMessage( msg )
-    if not msg or "string"~=type(msg) then
+    if not msg then
         return false
     end
 
@@ -101,6 +101,7 @@ function msgcache.hasMessage( msg )
 
     for i=#mqttMsgSet,1,-1 do
         if mqttMsgSet[i] == sn then
+            LogUtil.d(TAG," msgcache.hasMessage,sn = "..sn)
             return true
         end
     end
