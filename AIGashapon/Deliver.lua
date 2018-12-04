@@ -14,6 +14,7 @@ require "CBase"
 require "RepDeliver"
 require "UploadSaleLog"
 require "CRBase"
+require "msgcache"
 require "UploadDetect"
 
 local jsonex = require "jsonex"
@@ -372,7 +373,7 @@ function Deliver:handleContent( content )
                     saleLogHandler:setMap(saleLogMap)
                     saleLogHandler:send(CRBase.BUSY)
 
-                    LogUtil.d(TAG,TAG.." dup request for seq = "..device_seq.." loc = "..location.." ignored order ="..orderId)
+                    LogUtil.d(TAG,TAG.." duprequest for seq = "..device_seq.." loc = "..location.." ignored order ="..orderId)
                     --当前的location，有订单在处理中，上报后，直接返回，不再继续开锁
                     return
                 else

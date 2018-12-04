@@ -12,7 +12,7 @@ require "http"
 require "net"
 require "Consts"
 require "CloudConsts"
-require "SnCache"
+require "msgcache"
 require "Config"
 require "LogUtil"
 require "UartMgr"
@@ -24,7 +24,6 @@ require "GetTime"
 require "RepTime"
 require "SetConfig"
 require "MyUtils"
-require "MsgQueue"
 
 local jsonex = require "jsonex"
 
@@ -41,6 +40,7 @@ local CLIENT_COMMAND_TIMEOUT = 5000
 local CLIENT_COMMAND_SHORT_TIMEOUT = 1000
 local MAX_MSG_CNT_PER_REQ = 1--每次最多发送的消息数
 local mqttc = nil
+local toPublishMessages={}
 
 local TAG = "MQTTManager"
 local reconnectCount = 0
@@ -58,8 +58,7 @@ function emptyExtraRequest()
 end 
 
 function emptyMessageQueue()
-    -- TODO 清理所有的消息
-    MsgQueue.clear()
+      toPublishMessages={}
 end
 
 function timeSync()
@@ -210,14 +209,13 @@ function connectMQTT()
 end
 
 function hasMessage()
-    return MsgQueue.hasMessage()
+    return toPublishMessages and  0~= MyUtils.getTableLen(toPublishMessages)
 end
 
 --控制每次调用，发送的消息数，防止发送消息，影响了收取消息
 function publishMessageQueue(maxMsgPerRequest)
-    -- TODO 发送消息
     -- 在此发送消息,避免在不同coroutine中发送的bug
-    if not MsgQueue.hasMessage() then
+    if not toPublishMessages or 0 == MyUtils.getTableLen(toPublishMessages) then
         LogUtil.d(TAG,"publish message queue is empty")
         return
     end
@@ -243,8 +241,6 @@ function publishMessageQueue(maxMsgPerRequest)
 
     local toRemove={}
     local count=0
-    local toPublishMessages= MsgQueue.getQueue()
-
     for key,msg in pairs(toPublishMessages) do
         topic = msg.topic
         payload = msg.payload
@@ -258,12 +254,13 @@ function publishMessageQueue(maxMsgPerRequest)
                 toRemove[key]=1
 
                 LogUtil.d(TAG,"published payload= "..payload)
-                payload = jsonex.decode(payload)
-                local content = payload[CloudConsts.CONTENT]
-                if content or "table" == type(content) then
-                    local sn = content[CloudConsts.SN]
-                    SnCache.remove(sn)
-                end
+                -- payload = jsonex.decode(payload)
+                -- local content = payload[CloudConsts.CONTENT]
+                -- if content or "table" == type(content) then
+                    -- local sn = content[CloudConsts.SN]
+                    -- do not remove,it will overwrite auto
+                    -- msgcache.remove(sn)
+                -- end
             end
 
             count = count+1
@@ -277,7 +274,7 @@ function publishMessageQueue(maxMsgPerRequest)
     -- 清除已经成功的消息
     for key,_ in pairs(toRemove) do
         if key then
-            MsgQueue.remove(key)
+            toPublishMessages[key]=nil
         end
     end
 
@@ -307,30 +304,16 @@ function handleRequst()
 end
 
 function publish(topic, payload)
-    -- TODO 添加到消息队列
-    if not topic or not payload then
-        return
-    end
-
+    toPublishMessages=toPublishMessages or{}
+    
     msg={}
     msg.topic=topic
     msg.payload=payload
-
-    local content = payload[CloudConsts.CONTENT]
-    if not content or "table" ~= type(content) then
-        return
-    end
-
-    local sn = content[CloudConsts.SN]
-
-    if not sn or "string"~= type(sn) then
-        return
-    end
-
-    MsgQueue.add(sn,msg)
+    toPublishMessages[crypto.md5(payload,#payload)]=msg
+    
     -- TODO 修改为持久化方式，发送消息
 
-    LogUtil.d(TAG,"add to publish queue,topic="..topic)
+    LogUtil.d(TAG,"add to publish queue,topic="..topic.." toPublishMessages len="..MyUtils.getTableLen(toPublishMessages))
 end
 
 
@@ -349,9 +332,9 @@ function loopPreviousMessage( mqttProtocolHandlerPool )
             break
         end
 
-        if r and data and not SnCache.hasMessage(data) then
+        if r and data and not msgcache.hasMessage(data) then
             -- 去除重复的sn消息
-            if SnCache.addMsg2Cache(data) then
+            if msgcache.addMsg2Cache(data) then
                 for k,v in pairs(mqttProtocolHandlerPool) do
                     if v:handle(data) then
                         log.info(TAG, "loopPreviousMessage reconnectCount="..reconnectCount.." ver=".._G.VERSION.." ostime="..os.time())
@@ -359,7 +342,7 @@ function loopPreviousMessage( mqttProtocolHandlerPool )
                     end
                 end
             else
-                log.info(TAG, "loopPreviousMessage dup msg,data = "..data)
+                log.info(TAG, "loopPreviousMessage dup msg")
             end
         else
             log.info(TAG, "loopPreviousMessage no more msg")
@@ -391,9 +374,9 @@ function loopMessage(mqttProtocolHandlerPool)
             break
         end
 
-        if r and data and not SnCache.hasMessage(data) then
+        if r and data and not msgcache.hasMessage(data) then
             -- 去除重复的sn消息
-            if SnCache.addMsg2Cache(data) then
+            if msgcache.addMsg2Cache(data) then
                 for k,v in pairs(mqttProtocolHandlerPool) do
                     if v:handle(data) then
                         log.info(TAG, "reconnectCount="..reconnectCount.." ver=".._G.VERSION.." ostime="..os.time())
@@ -480,8 +463,8 @@ function startmqtt()
             connectMQTT()
             mqttc:disconnect()
 
-            -- SnCache.clear()
-            -- emptyMessageQueue()
+            -- msgcache.clear()
+            emptyMessageQueue()
             emptyExtraRequest()
             reconnectCount = 0
             LogUtil.d(TAG,".............................startmqtt CLEANSESSION all ".." reconnectCount = "..reconnectCount)
