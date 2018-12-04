@@ -4,19 +4,42 @@
 -- @release 2018.2.8
 
 require "LogUtil"
-require "Config"
+require "ConfigEx"
+require "MyUtils"
 
 local jsonex = require "jsonex"
 
+local CONFIG_FILE = Consts.USER_DIR.."/sncache.data"
 local MAX_MQTT_CACHE_COUNT = 15--缓存的最大数量
 local DECR_MQTT_CACHE_COUNT = 5--超过条数后，每次删除的数量
-local SN_SET_PERSISTENCE_KEY="msg_sn_set"
+local SN_SET_PERSISTENCE_KEY="sncache"
 
+local inited = false
 local TAG = "MSGCACHE"
-
+local memCache = {}
 SnCache={}
+
+function SnCache.init()
+    if inited then
+        return
+    end
+    -- TODO 读取文件
+    
+    local allset = ConfigEx.getValue(CONFIG_FILE,MSGQUEUE_KEY)
+    if allset and "string"==type(allset) and #allset>0 then
+        memCache = jsonex.decode(allset)
+    end 
+
+    if not memCache then
+        memCache = {}
+    end 
+    inited = true
+end
+
+
 function SnCache.clear()
-    Config.saveValue(SN_SET_PERSISTENCE_KEY,"")
+    memCache={}
+    ConfigEx.saveValue(CONFIG_FILE,SN_SET_PERSISTENCE_KEY,"")
     LogUtil.d(TAG,"clear SnCache")
 end
 
@@ -24,33 +47,50 @@ function SnCache.remove(sn)
     if not sn or "string"~=type(sn) then
         return
     end
+    SnCache.init()
+
+    if not memCache then
+        memCache={}
+    end
 
     LogUtil.d(TAG,"start to remove msg,sn ="..sn)
-    --从文件中提取历史消息，然后进行追加
-    local mqttMsgSet = {}
-    local allset = Config.getValue(SN_SET_PERSISTENCE_KEY)
-    if allset and "string"==type(allset) and #allset>0 then
-        mqttMsgSet = jsonex.decode(allset)
-    end 
+    memCache[sn]=nil
 
-    if not mqttMsgSet then
-        return
-    end  
+    ConfigEx.saveValue(CONFIG_FILE,SN_SET_PERSISTENCE_KEY,jsonex.encode(memCache))
+    LogUtil.d(TAG,sn.."reduce queue's sn = "..sn.." new size="..MyUtils.getTableLen(memCache))
+end
 
-    local existed = false
-    for i=#mqttMsgSet,1,-1 do
-        if mqttMsgSet[i] == sn then
-            table.remove(mqttMsgSet, i)
-            existed = true
-        end
-    end
-    
-    if not existed then
-        return
+function SnCache.getMessageSn( msg )
+    local tableObj = msg
+    if "string"==type(tableObj) then
+        tableObj = jsonex.decode(msg)
     end
 
-    Config.saveValue(SN_SET_PERSISTENCE_KEY,jsonex.encode(mqttMsgSet))
-    LogUtil.d(TAG,sn.."reduce queue's sn = "..sn.." new size="..#mqttMsgSet)
+    if not tableObj or "table"~=type(tableObj) then
+        return nil
+    end
+
+    local payload = tableObj[CloudConsts.PAYLOAD]
+    if "string"==type(payload) then
+      payload = jsonex.decode(payload)
+    end
+
+    if not payload or "table" ~= type(payload) then
+        return nil
+    end
+
+
+    local content = payload[CloudConsts.CONTENT]
+    if not content or "table" ~= type(content) then
+        return nil
+    end
+
+    local sn = content[CloudConsts.SN]
+
+    if not sn or "string"~= type(sn) then
+        return nil
+    end
+    return sn
 end
 
 function SnCache.hasMessage( msg )
@@ -58,143 +98,37 @@ function SnCache.hasMessage( msg )
         return false
     end
 
-    --从文件中提取历史消息，然后进行追加
-    local mqttMsgSet = {}
-    local allset = Config.getValue(SN_SET_PERSISTENCE_KEY)
-    if allset and "string"==type(allset) and #allset>0 then
-        mqttMsgSet = jsonex.decode(allset)
-    end 
-
-    if not mqttMsgSet then
-        return false
-    end  
-
-    local tableObj = msg
-    if "string"==type(tableObj) then
-        tableObj = jsonex.decode(msg)
-    end
-
-    if not tableObj or "table"~=type(tableObj) then
+    SnCache.init()
+    LogUtil.d(TAG,"SnCache.hasMessage = "..msg)
+    local sn = SnCache.getMessageSn(msg)
+    if not sn then
         return false
     end
 
-    local payload = tableObj[CloudConsts.PAYLOAD]
-    if "string"==type(payload) then
-      payload = jsonex.decode(payload)
-    end
-
-    if not payload or "table" ~= type(payload) then
-        return false
-    end
-
-
-    local content = payload[CloudConsts.CONTENT]
-    if not content or "table" ~= type(content) then
-        return false
-    end
-
-    local sn = content[CloudConsts.SN]
-    if not sn or "string"~= type(sn) then
-        return false
-    end
-
-    for i=#mqttMsgSet,1,-1 do
-        if mqttMsgSet[i] == sn then
-            return true
-        end
-    end
-
-    return false
+    return nil~=memCache[sn]
 end
 
 
 --添加到msg缓存,如果不存在，则返回true；如果已经存在，则返回false
 function SnCache.addMsg2Cache(msg)
-    local r = false
     --解析msg中的sn
     if not msg then
-        return r
+        return false
     end
+    SnCache.init()
 
-    local tableObj = msg
-    if "string"==type(tableObj) then
-        tableObj = jsonex.decode(msg)
+    local sn = SnCache.getMessageSn(msg)
+    if not sn then
+        LogUtil.d(TAG,sn.." no sn,ignore")
+        return false
     end
-
-    if not tableObj or "table"~=type(tableObj) then
-        return r
-    end
-
-    local payload = tableObj[CloudConsts.PAYLOAD]
-    if "string"==type(payload) then
-      payload = jsonex.decode(payload)
-    end
-
-    if not payload or "table" ~= type(payload) then
-        return r
-    end
-
-
-    local content = payload[CloudConsts.CONTENT]
-    if not content or "table" ~= type(content) then
-        LogUtil.d(TAG,"illegal content,return")
-        return r
-    end
-
-    local sn = content[CloudConsts.SN]
-    if not sn or "string"~= type(sn) then
-        LogUtil.d(TAG,"no sn,no cache")
-        return true--不缓存，直接向下传递
-    end
-
-    --从文件中提取历史消息，然后进行追加
-    local mqttMsgSet = {}
-    local allset = Config.getValue(SN_SET_PERSISTENCE_KEY)
-    if allset and "string"==type(allset) and #allset>0 then
-        mqttMsgSet = jsonex.decode(allset)
-    end 
-
-    if not mqttMsgSet then
-        mqttMsgSet = {}
-    end  
-
-    local existed = false
-    for _,value in pairs(mqttMsgSet) do
-        if value == sn then
-         LogUtil.d(TAG,sn.." duplicate sn in queue,sn="..sn)
-         existed = true
-         break
-        end
-    end
-    LogUtil.d(TAG,jsonex.encode(content).." added, queue size = "..#mqttMsgSet)
-
-    local updated = false
-    --不存在的话，则记录下
-    if not existed then
-        mqttMsgSet[#mqttMsgSet+1]=sn
-        r = true
-        updated = true
-    end
-
-    --缓存数量超了，删除最早加入的那些
-    if #mqttMsgSet >= MAX_MQTT_CACHE_COUNT then
-        --从头部开始删除
-        for i=1,DECR_MQTT_CACHE_COUNT do
-            if 0 == #mqttMsgSet then
-                break
-            end
-            table.remove(mqttMsgSet,1)
-            updated = true
-        end    
-    end
+    memCache[sn]=sn
 
     --是否需要更新文件
-    if updated then
-         Config.saveValue(SN_SET_PERSISTENCE_KEY,jsonex.encode(mqttMsgSet))
-         LogUtil.d(TAG,sn.." update queue,size="..#mqttMsgSet)
-    end
+    ConfigEx.saveValue(CONFIG_FILE,SN_SET_PERSISTENCE_KEY,jsonex.encode(memCache))
+    LogUtil.d(TAG,sn.." update queue,size="..MyUtils.getTableLen(memCache))
 
-    return r
+    return true
 end     
 
 
