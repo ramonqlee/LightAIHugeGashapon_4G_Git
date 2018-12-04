@@ -125,7 +125,7 @@ function SnCache.addMsg2Cache(msg)
 
     if memCache[sn] then
         LogUtil.d(TAG,"SnCache.addMsg2Cache dup sn="..sn)
-        return
+        return true
     end
 
     memCache[sn]=sn
