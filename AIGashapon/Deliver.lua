@@ -103,8 +103,7 @@ function  openLockCallback(addr)
             LogUtil.d(TAG,TAG.." openLockCallback handled orderId ="..orderId.." seq = "..seq.." loc = "..loc)
 
             if loc and seq and seq == addr  then
-
-                Config.saveValue(LAST_OPEN_LOCK_OID,orderId)--更新开锁成功的订单号
+                
                 --  确认订单状态
                 -- 旋扭锁控制状态(S1):
                 --     指示当前的旋钮锁，是处于打开还是关闭状态:0 = 关闭;1=打开 
@@ -432,6 +431,7 @@ function Deliver:handleContent( content )
             UARTControlInd.open()--兼容性方法，已经废弃
             r = UARTControlInd.encode()--新的开锁方式
             UartMgr.publishMessage(r)
+            Config.saveValue(LAST_OPEN_LOCK_OID,orderId)--更新开锁成功的订单号
             
             LogUtil.d(TAG,TAG.." Deliver openLock,addr = "..device_seq)
         else
