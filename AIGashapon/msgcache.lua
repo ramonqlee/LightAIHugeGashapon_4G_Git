@@ -148,7 +148,7 @@ function msgcache.addMsg2Cache(msg)
         mqttMsgSet[#mqttMsgSet+1]=sn
         r = true
         updated = true
-        LogUtil.d(TAG,jsonex.encode(content).."added, queue size = "..#mqttMsgSet)
+        LogUtil.d(TAG,jsonex.encode(payload).."added, queue size = "..#mqttMsgSet)
     end
 
     --缓存数量超了，删除最早加入的那些

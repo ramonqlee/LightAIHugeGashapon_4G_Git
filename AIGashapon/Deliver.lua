@@ -17,6 +17,7 @@ require "CRBase"
 require "msgcache"
 require "UploadDetect"
 
+local LAST_OPEN_LOCK_OID = "lastOpenLockOId"
 local jsonex = require "jsonex"
 local TAG = "Deliver"
 local gBusyMap={}--是否在占用的记录
@@ -103,6 +104,7 @@ function  openLockCallback(addr)
 
             if loc and seq and seq == addr  then
 
+                Config.saveValue(LAST_OPEN_LOCK_OID,orderId)--更新开锁成功的订单号
                 --  确认订单状态
                 -- 旋扭锁控制状态(S1):
                 --     指示当前的旋钮锁，是处于打开还是关闭状态:0 = 关闭;1=打开 
@@ -202,7 +204,14 @@ function TimerFunc(id)
 
                     local saleLogHandler = UploadSaleLog:new()
                     saleLogHandler:setMap(saleTable)
-                    saleLogHandler:send(CRBase.NOT_ROTATE)
+
+                    --如果是最近一次开锁成功的，上报成功，否则上报超时
+                    local lastOpenLockOrderId = Config.getValue(LAST_OPEN_LOCK_OID)
+                    local s = CRBase.NOT_ROTATE
+                    if orderId == lastOpenLockOId then
+                        s = CRBase.SUCCESS
+                    end
+                    saleLogHandler:send(s)
 
                     toRemove[key] = 1
                 end
@@ -413,15 +422,21 @@ function Deliver:handleContent( content )
     end
         saleLogMap[LOCK_OPEN_TIME]=os.time()
 
-        -- 开锁，以及检测
-        -- TODO 中断方式，进行回调
-        UARTControlInd.setDeliverCallback(device_seq,openLockCallback)
-        
-        UARTControlInd.open()--兼容性方法，已经废弃
-        r = UARTControlInd.encode()--新的开锁方式
-        UartMgr.publishMessage(r)
-
-        LogUtil.d(TAG,TAG.." Deliver openLock,addr = "..device_seq)
+        -- TODO 如果已经开过锁了，则不再重复开锁(在开锁成功的地方，进行更新 )
+        local lastOpenLockOrderId = Config.getValue(LAST_OPEN_LOCK_OID)
+        if orderId ~= lastOpenLockOrderId then
+            -- 开锁，以及检测
+            -- TODO 中断方式，进行回调
+            UARTControlInd.setDeliverCallback(device_seq,openLockCallback)
+            
+            UARTControlInd.open()--兼容性方法，已经废弃
+            r = UARTControlInd.encode()--新的开锁方式
+            UartMgr.publishMessage(r)
+            
+            LogUtil.d(TAG,TAG.." Deliver openLock,addr = "..device_seq)
+        else
+            LogUtil.d(TAG,TAG.." Deliver lock opened before,orderId = "..orderId)
+        end
         
         local key = device_seq.."_"..location
         gBusyMap[key]=saleLogMap
