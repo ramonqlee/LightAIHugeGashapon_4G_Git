@@ -205,12 +205,8 @@ function TimerFunc(id)
                     saleLogHandler:setMap(saleTable)
 
                     --如果是最近一次开锁成功的，上报成功，否则上报超时
-                    if lastOpenLockOId then
-                        LogUtil.d(TAG,TAG.."in TimerFunc timeout orderId ="..orderId.." lastOpenLockOId="..lastOpenLockOId)
-                    end
-
                     local s = CRBase.NOT_ROTATE
-                    if orderId == lastOpenLockOId then
+                    if orderId == lastOpenLockOrderId then
                         s = CRBase.SUCCESS
                     end
                     saleLogHandler:send(s)
