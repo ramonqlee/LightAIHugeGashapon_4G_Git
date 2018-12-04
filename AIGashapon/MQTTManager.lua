@@ -432,8 +432,6 @@ function startmqtt()
         return
     end
 
-    msgcache.clear()--清理缓存的消息数据
-
     while true do
         --检查网络，网络不可用时，会重启机器
         checkNetwork()
@@ -465,7 +463,7 @@ function startmqtt()
             connectMQTT()
             mqttc:disconnect()
 
-            msgcache.clear()
+            -- msgcache.clear()
             emptyMessageQueue()
             emptyExtraRequest()
             reconnectCount = 0
