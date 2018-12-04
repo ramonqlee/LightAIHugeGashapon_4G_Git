@@ -1,4 +1,4 @@
--- @module msgcache
+-- @module SnCache
 -- @author ramonqlee
 -- @copyright idreems.com
 -- @release 2018.2.8
@@ -14,14 +14,13 @@ local SN_SET_PERSISTENCE_KEY="msg_sn_set"
 
 local TAG = "MSGCACHE"
 
-msgcache={}
-function msgcache.clear()
+SnCache={}
+function SnCache.clear()
     Config.saveValue(SN_SET_PERSISTENCE_KEY,"")
-    LogUtil.d(TAG,"clear msgcache")
+    LogUtil.d(TAG,"clear SnCache")
 end
 
-
-function msgcache.remove(sn)
+function SnCache.remove(sn)
     if not sn or "string"~=type(sn) then
         return
     end
@@ -54,7 +53,7 @@ function msgcache.remove(sn)
     LogUtil.d(TAG,sn.."reduce queue's sn = "..sn.." new size="..#mqttMsgSet)
 end
 
-function msgcache.hasMessage( msg )
+function SnCache.hasMessage( msg )
     if not msg or "string"~=type(msg) then
         return false
     end
@@ -110,7 +109,7 @@ end
 
 
 --添加到msg缓存,如果不存在，则返回true；如果已经存在，则返回false
-function msgcache.addMsg2Cache(msg)
+function SnCache.addMsg2Cache(msg)
     local r = false
     --解析msg中的sn
     if not msg then

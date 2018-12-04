@@ -14,7 +14,7 @@ require "CBase"
 require "RepDeliver"
 require "UploadSaleLog"
 require "CRBase"
-require "msgcache"
+require "SnCache"
 require "UploadDetect"
 
 local jsonex = require "jsonex"

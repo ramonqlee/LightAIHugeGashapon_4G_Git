@@ -12,7 +12,7 @@ require "http"
 require "net"
 require "Consts"
 require "CloudConsts"
-require "msgcache"
+require "SnCache"
 require "Config"
 require "LogUtil"
 require "UartMgr"
@@ -263,7 +263,7 @@ function publishMessageQueue(maxMsgPerRequest)
                 -- if content or "table" == type(content) then
                     -- local sn = content[CloudConsts.SN]
                     -- do not remove,it will overwrite auto
-                    -- msgcache.remove(sn)
+                    -- SnCache.remove(sn)
                 -- end
             end
 
@@ -335,9 +335,9 @@ function loopPreviousMessage( mqttProtocolHandlerPool )
             break
         end
 
-        if r and data and not msgcache.hasMessage(data) then
+        if r and data and not SnCache.hasMessage(data) then
             -- 去除重复的sn消息
-            if msgcache.addMsg2Cache(data) then
+            if SnCache.addMsg2Cache(data) then
                 for k,v in pairs(mqttProtocolHandlerPool) do
                     if v:handle(data) then
                         log.info(TAG, "loopPreviousMessage reconnectCount="..reconnectCount.." ver=".._G.VERSION.." ostime="..os.time())
@@ -377,9 +377,9 @@ function loopMessage(mqttProtocolHandlerPool)
             break
         end
 
-        if r and data and not msgcache.hasMessage(data) then
+        if r and data and not SnCache.hasMessage(data) then
             -- 去除重复的sn消息
-            if msgcache.addMsg2Cache(data) then
+            if SnCache.addMsg2Cache(data) then
                 for k,v in pairs(mqttProtocolHandlerPool) do
                     if v:handle(data) then
                         log.info(TAG, "reconnectCount="..reconnectCount.." ver=".._G.VERSION.." ostime="..os.time())
@@ -466,7 +466,7 @@ function startmqtt()
             connectMQTT()
             mqttc:disconnect()
 
-            -- msgcache.clear()
+            -- SnCache.clear()
             -- emptyMessageQueue()
             emptyExtraRequest()
             reconnectCount = 0
