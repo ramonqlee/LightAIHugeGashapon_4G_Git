@@ -102,56 +102,26 @@ function  openLockCallback(addr)
 
             LogUtil.d(TAG,TAG.." openLockCallback handled orderId ="..orderId.." seq = "..seq.." loc = "..loc)
 
+            -- 出货成功了
             if seq == addr  then
                 
-                --  确认订单状态
-                -- 旋扭锁控制状态(S1):
-                --     指示当前的旋钮锁，是处于打开还是关闭状态:0 = 关闭;1=打开 
-                -- 出货状态(S2):
-                --      0为初始化状态  1为出货成功   2为出货超时（在协议设定的时间内用户未操作，锁已恢复锁止状态）
-                
-                loc = tonumber(loc)
-                ok = true
+                LogUtil.d(TAG,TAG.." openLockCallback delivered OK")
 
-                -- 出货成功了
-                if ok then
-                    LogUtil.d(TAG,TAG.." openLockCallback delivered OK")
+                saleTable[CloudConsts.CTS]=os.time()
+                saleTable[UPLOAD_POSITION]=UPLOAD_NORMAL
+                local saleLogHandler = UploadSaleLog:new()
+                saleLogHandler:setMap(saleTable)
 
-                    -- 上报出货检测
-                    local detectTable = {}
-                    detectTable[CloudConsts.AMOUNT]=1
-                    detectTable[CloudConsts.SN]=saleTable[CloudConsts.SN]
-                    detectTable[CloudConsts.ONLINE_ORDER_ID]=saleTable[CloudConsts.ONLINE_ORDER_ID]
-
-                    detectionHandler = UploadDetect:new()
-                    detectionHandler:setMap(detectTable)
-                    detectionHandler:send()
-
-                    -- 上报出货日志(如果已经上报过超时，就不再上报了)
-                    if not saleTable[UPLOAD_POSITION] then
-                        saleTable[CloudConsts.CTS]=os.time()
-                        saleTable[UPLOAD_POSITION]=UPLOAD_NORMAL
-                        local saleLogHandler = UploadSaleLog:new()
-                        saleLogHandler:setMap(saleTable)
-
-                        s = CRBase.SUCCESS
-                        if os.time() > saleTable[Deliver.ORDER_TIMEOUT_TIME_IN_SEC] then
-                            s = CRBase.DELIVER_AFTER_TIMEOUT--超时出货
-                            saleTable[UPLOAD_POSITION]=UPLOAD_DELIVER_AFTER_TIMEOUT
-                        end
-                        saleLogHandler:send(s)
-                    end
-
-                    -- 添加到待删除列表中
-                    toRemove[key] = 1
-                    LogUtil.d(TAG,TAG.." add to to-remove tab,key = "..key)
-                else
-                    lockstate="close"
-                    if lockOpen then
-                        lockstate = "open"
-                    end
-                    LogUtil.d(TAG,TAG.." openLockCallback deliver lockstate = "..lockstate)
+                s = CRBase.SUCCESS
+                if os.time() > saleTable[Deliver.ORDER_TIMEOUT_TIME_IN_SEC] then
+                    s = CRBase.DELIVER_AFTER_TIMEOUT--超时出货
+                    saleTable[UPLOAD_POSITION]=UPLOAD_DELIVER_AFTER_TIMEOUT
                 end
+                
+                saleLogHandler:send(s)
+
+                toRemove[key] = 1
+                LogUtil.d(TAG,TAG.." add to to-remove tab,key = "..key)
             end
         end
     end
