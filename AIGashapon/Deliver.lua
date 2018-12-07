@@ -102,7 +102,7 @@ function  openLockCallback(addr)
 
             LogUtil.d(TAG,TAG.." openLockCallback handled orderId ="..orderId.." seq = "..seq.." loc = "..loc)
 
-            if loc and seq and seq == addr  then
+            if seq == addr  then
                 
                 --  确认订单状态
                 -- 旋扭锁控制状态(S1):
@@ -331,7 +331,7 @@ function Deliver:handleContent( content )
     saleLogMap[CloudConsts.PAID_AMOUNT]= 1
     saleLogMap[CloudConsts.VM_S2STATE]= "0"
 
-    local debugExpired = os.time()+40
+    local debugExpired = os.time()+30
     saleLogMap[Deliver.ORDER_TIMEOUT_TIME_IN_SEC]= Consts.TEST_MODE_DELIVER and debugExpired or expired
     saleLogMap[LOCK_OPEN_STATE] = LOCK_STATE_CLOSED--出货时设置锁的状态为关闭
 
