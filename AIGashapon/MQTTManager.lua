@@ -70,6 +70,11 @@ function timeSync()
     if Consts.timeSyncCount > Consts.MAX_TIME_SYNC_COUNT then
         LogUtil.d(TAG," timeSync abort because count exceed,ignore this request")
 
+        --如果还没同步时间，现在设置下吧
+        if not Consts.LAST_REBOOT then
+            Consts.LAST_REBOOT = os.time()
+        end
+
         if Consts.gTimerId and sys.timerIsActive(Consts.gTimerId) then
             sys.timerStop(Consts.gTimerId)
             Consts.gTimerId = nil
