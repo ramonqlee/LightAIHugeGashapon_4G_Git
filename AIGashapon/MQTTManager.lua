@@ -29,8 +29,8 @@ require "ConstsPrivate"
 local jsonex = require "jsonex"
 
 local MAX_MQTT_FAIL_COUNT = 3--mqtt连接失败2次
-local MAX_NET_FAIL_COUNT = Consts.TEST_MODE and 6 or 3*5--断网3分钟，会重启
-local RETRY_TIME=12000
+local MAX_NET_FAIL_COUNT =  2*5--断网5分钟，会重启
+local RETRY_TIME=30*1000
 local DISCONNECT_WAIT_TIME=5000
 local KEEPALIVE,CLEANSESSION=60,0
 local CLEANSESSION_TRUE=1
@@ -159,19 +159,7 @@ function checkMQTTUser()
 end
 
 function checkNetwork()
-    LogUtil.d(TAG,"prepare to switch reboot mode")
-    -- 切换下次的重启方式
-    local rebootMethod = Config.getValue(CloudConsts.REBOOT_METHOD)
-    if not rebootMethod or #rebootMethod <=0 then
-        rebootMethod = CloudConsts.SOFT_REBOOT
-    end
-
-    local nextRebootMethod = CloudConsts.WD_REBOOT--代表其他重启方式，目前为通过看门狗重启
-    if CloudConsts.WD_REBOOT == rebootMethod then
-        nextRebootMethod = CloudConsts.SOFT_REBOOT
-    end
-    Config.saveValue(CloudConsts.REBOOT_METHOD,nextRebootMethod)
-    LogUtil.d(TAG,"rebootMethod ="..rebootMethod.." nextRebootMethod = "..nextRebootMethod)
+    LogUtil.d(TAG,"checkNetworking")
 
     local netFailCount = 0
     while not link.isReady() do
@@ -192,7 +180,7 @@ end
 function connectMQTT()
     local mqttFailCount = 0
     while not mqttc:connect(ADDR,PORT) do
-        LogUtil.d(TAG,"fail to connect mqtt,mqttc:disconnect,try after 10s")
+        LogUtil.d(TAG,"fail to connect mqtt,retry after 30s")
         mqttc:disconnect()
         
         sys.wait(RETRY_TIME)
@@ -202,20 +190,21 @@ function connectMQTT()
             MyUtils.clearUserName()
             MyUtils.clearPassword()
 
-            -- 网络ok时，重启板子
-            if link.isReady() then
-                LogUtil.d(TAG,"............softReboot when link.isReady in connectMQTT")
-                sys.wait(RETRY_TIME)--等待日志输出完毕
-                sys.restart("mqttFailTooLong")--重启更新包生效
-            end
-
-            break
+            -- 重启板子
+            
+            LogUtil.d(TAG,"............softReboot when link.isReady in connectMQTT")
+            sys.restart("mqttFailTooLong")--重启更新包生效
+            sys.wait(RETRY_TIME)--等待日志输出完毕
         end
     end
 end
 
 function hasMessage()
     return toPublishMessages and  0~= MyUtils.getTableLen(toPublishMessages)
+end
+
+function isConnected()
+    return nil~ = mqttc and mqttc.connected
 end
 
 --控制每次调用，发送的消息数，防止发送消息，影响了收取消息
