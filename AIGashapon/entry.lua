@@ -22,7 +22,7 @@ require "MQTTManager"
 local TAG="Entry"
 local timerId=nil
 local timedTaskId = nil
-
+local mqttNetConnectCount=0
 
 function startTimedTask()
     if timedTaskId and sys.timerIsActive(timedTaskId) then
@@ -35,10 +35,25 @@ function startTimedTask()
             	return
             end
 
+            -- 检查下mqtt的状态，如果没运行，则重启下
+            mqttChecker()
             checkTask()
             checkUpdate()
             
         end,Consts.TIMED_TASK_INTERVAL_MS)
+end
+
+function mqttChecker()
+    -- body
+    if not MQTTManager.isConnected() then
+        mqttNetConnectCount = mqttNetConnectCount +1
+    else
+        mqttNetConnectCount = 0
+    end
+
+    if mqttNetConnectCount >= Consts.MIN_MQTT_REBOOT_COUNT then
+        sys.restart("mqttFail")
+    end
 end
 
 -- 自动升级检测

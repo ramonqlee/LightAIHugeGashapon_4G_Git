@@ -22,7 +22,7 @@ MAX_LOOP_INTERVAL = 3*60
 MAX_TIME_SYNC_COUNT = 2--时间同步重试次数
 TIME_SYNC_INTERVAL_MS = 30*1000--时间同步发起的间隔
 -- FIXME TEMP CODE
-TIMED_TASK_INTERVAL_MS = 10*60*1000--定时任务检测的时间
+TIMED_TASK_INTERVAL_MS = 5*60*1000--定时任务检测的时间
 MIN_TIME_SYNC_OFFSET = 60--校对时间允许的误差
 
 TWINKLE_TIME_DELAY = 60--距离上次购买多长时间后，再次待机
@@ -39,5 +39,6 @@ timeSynced = nil
 timeSyncCount=0
 RETRY_OPEN_LOCK=false--是否开启重新开锁功能
 EANBLE_MERGE_BOARD_ID = false--是否合并所有获得的小板子id
+MIN_MQTT_REBOOT_COUNT=2 --如果超过次数，则重启机器
    
 
