@@ -204,7 +204,7 @@ function hasMessage()
 end
 
 function isConnected()
-    return nil~ = mqttc and mqttc.connected
+    return nil~=mqttc and mqttc.connected
 end
 
 --控制每次调用，发送的消息数，防止发送消息，影响了收取消息
