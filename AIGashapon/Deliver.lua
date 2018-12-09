@@ -18,6 +18,10 @@ require "msgcache"
 require "UploadDetect"
 
 local LAST_OPEN_LOCK_OID = "lastOpenLockOId"
+local DELIVER_STATE = "deliverState"--出货状态
+local DELIVER_OK="1"--已出货
+local DELIVER_NOT_YET="0"--未出货
+
 local jsonex = require "jsonex"
 local TAG = "Deliver"
 local gBusyMap={}--是否在占用的记录
@@ -106,7 +110,9 @@ function  openLockCallback(addr)
             if seq == addr  then
                 
                 LogUtil.d(TAG,TAG.." openLockCallback delivered OK")
+                Config.saveValue(DELIVER_STATE,DELIVER_OK)--设置出货状态
 
+                saleTable[LOCK_OPEN_STATE] = LOCK_STATE_OPEN--设定锁的状态
                 saleTable[CloudConsts.CTS]=os.time()
                 saleTable[UPLOAD_POSITION]=UPLOAD_NORMAL
                 local saleLogHandler = UploadSaleLog:new()
@@ -174,9 +180,11 @@ function TimerFunc(id)
                     local saleLogHandler = UploadSaleLog:new()
                     saleLogHandler:setMap(saleTable)
 
-                    --如果是最近一次开锁成功的，上报成功，否则上报超时
+                    local deliverState = Config.getValue(DELIVER_STATE)--设置出货状态
+
+                    --如果是最近一次开锁成功的，并且出货状态为已出货，上报成功，否则上报超时
                     local s = CRBase.NOT_ROTATE
-                    if orderId == lastOpenLockOrderId then
+                    if orderId == lastOpenLockOrderId and DELIVER_OK==deliverState then
                         s = CRBase.SUCCESS
                     end
                     saleLogHandler:send(s)
@@ -401,6 +409,7 @@ function Deliver:handleContent( content )
             r = UARTControlInd.encode()--新的开锁方式
             UartMgr.publishMessage(r)
             Config.saveValue(LAST_OPEN_LOCK_OID,orderId)--更新开锁成功的订单号
+            Config.saveValue(DELIVER_STATE,DELIVER_NOT_YET)--重置出货状态
 
             LogUtil.d(TAG,TAG.." Deliver openLock,addr = "..device_seq)
         else
