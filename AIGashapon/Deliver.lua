@@ -184,7 +184,8 @@ function TimerFunc(id)
 
                     --如果是最近一次开锁成功的，并且出货状态为已出货，上报成功，否则上报超时
                     local s = CRBase.NOT_ROTATE
-                    if orderId == lastOpenLockOrderId and DELIVER_OK==deliverState then
+                    -- if orderId == lastOpenLockOrderId and DELIVER_OK==deliverState then
+                    if orderId == lastOpenLockOrderId then
                         s = CRBase.SUCCESS
                     end
                     saleLogHandler:send(s)
