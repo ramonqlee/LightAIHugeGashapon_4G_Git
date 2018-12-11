@@ -22,7 +22,14 @@ local DELIVER_STATE = "deliverState"--出货状态
 local DELIVER_OK="1"--已出货
 local DELIVER_NOT_YET="0"--未出货
 
+local OPEN_LOCK_STATE="openLockState"
+local OPEN_OK = "1"
+local OPEN_FAIL = "0"
+
+local lockOpenState = OPEN_FAIL
+local OPEN_LOCK_INS = nil
 local jsonex = require "jsonex"
+
 local TAG = "Deliver"
 local gBusyMap={}--是否在占用的记录
 local ORDER_EXPIRED_SPAN = 5*60--订单超期时间和系统当前当前时间的偏差
@@ -82,6 +89,12 @@ local function getTableLen( tab )
     return count
 end
 
+function deliverCallback( msg )
+    if msg == OPEN_LOCK_INS then
+        lockOpenState = OPEN_OK
+    end
+end
+
 -- 开锁的回调
 -- flagTable:二维数组
 function  openLockCallback(addr)
@@ -115,6 +128,7 @@ function  openLockCallback(addr)
                 saleTable[LOCK_OPEN_STATE] = LOCK_STATE_OPEN--设定锁的状态
                 saleTable[CloudConsts.CTS]=os.time()
                 saleTable[UPLOAD_POSITION]=UPLOAD_NORMAL
+                saleTable[OPEN_LOCK_STATE]=lockOpenState
                 local saleLogHandler = UploadSaleLog:new()
                 saleLogHandler:setMap(saleTable)
 
@@ -176,6 +190,7 @@ function TimerFunc(id)
                 if not saleTable[UPLOAD_POSITION] then
                     saleTable[UPLOAD_POSITION]=UPLOAD_TIMER_TIMEOUT
                     saleTable[CloudConsts.CTS]=systemTime
+                    saleTable[OPEN_LOCK_STATE]=lockOpenState
 
                     local saleLogHandler = UploadSaleLog:new()
                     saleLogHandler:setMap(saleTable)
@@ -314,6 +329,8 @@ function Deliver:handleContent( content )
     saleLogMap[Deliver.ORDER_TIMEOUT_TIME_IN_SEC]= Consts.TEST_MODE_DELIVER and debugExpired or expired
     saleLogMap[LOCK_OPEN_STATE] = LOCK_STATE_CLOSED--出货时设置锁的状态为关闭
 
+    lockOpenState = OPEN_FAIL
+
     -- 如果收到订单时，已经过期或者本地时间不准:过早收到了订单，则直接上传超时
     local osTime = os.time()
     if osTime>expired or expired-osTime>ORDER_EXPIRED_SPAN then
@@ -407,8 +424,13 @@ function Deliver:handleContent( content )
             UARTControlInd.setDeliverCallback(device_seq,openLockCallback)
             
             UARTControlInd.open()--兼容性方法，已经废弃
-            r = UARTControlInd.encode()--新的开锁方式
-            UartMgr.publishMessage(r)
+
+            if not OPEN_LOCK_INS then
+                OPEN_LOCK_INS = UARTControlInd.encode()--新的开锁方式
+            end
+
+            UartMgr.setCallback(deliverCallback)
+            UartMgr.publishMessage(OPEN_LOCK_INS)
             Config.saveValue(LAST_OPEN_LOCK_OID,orderId)--更新开锁成功的订单号
             Config.saveValue(DELIVER_STATE,DELIVER_NOT_YET)--重置出货状态
 
