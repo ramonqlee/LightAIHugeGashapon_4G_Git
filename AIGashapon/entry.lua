@@ -23,6 +23,25 @@ local TAG="Entry"
 local timerId=nil
 local timedTaskId = nil
 local mqttNetConnectCount=0
+local monitorTimer = nil
+
+--定时监控
+function startMonitor()
+    if monitorTimer and sys.timerIsActive(monitorTimer) then
+        LogUtil.d(TAG," startMonitor running,return")
+        return
+    end
+
+    monitorTimer = sys.timerLoopStart(function()
+            if MQTTManager.hasMessage() then
+                return
+            end
+
+            -- 检查下mqtt的状态，如果没运行，则重启下
+            mqttChecker()
+            
+        end,Consts.MONITOR_TASK_INTERVAL_MS)
+end
 
 function startTimedTask()
     if timedTaskId and sys.timerIsActive(timedTaskId) then
@@ -79,6 +98,7 @@ end
 
 
 function run()
+    startMonitor()
 	startTimedTask()
 	
     rtos.make_dir(Consts.USER_DIR)--make sure directory exist
