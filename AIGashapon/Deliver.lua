@@ -17,17 +17,7 @@ require "CRBase"
 require "msgcache"
 require "UploadDetect"
 
-local LAST_OPEN_LOCK_OID = "lastOpenLockOId"
-local DELIVER_STATE = "deliverState"--出货状态
-local DELIVER_OK="1"--已出货
-local DELIVER_NOT_YET="0"--未出货
 
-local OPEN_LOCK_STATE="openLockState"
-local OPEN_OK = "1"
-local OPEN_FAIL = "0"
-
-local lockOpenState = OPEN_FAIL
-local OPEN_LOCK_INS = nil
 local jsonex = require "jsonex"
 
 local TAG = "Deliver"
@@ -63,12 +53,23 @@ local UPLOAD_INVALID_ARRIVAL= "invalidOrder"
 
 --发送指令的时间
 local LOCK_OPEN_TIME="openTime"
-
 --发送出货指令后，锁的状态
 local LOCK_OPEN_STATE="s1state"
 local LOCK_STATE_OPEN = "1"
 local LOCK_STATE_CLOSED = "0"
 local lastDeliverTime = 0
+
+local LASTEST_ORDER_ID = "latestOrderId"
+local DELIVER_STATE = "deliverState"--出货状态
+local DELIVER_OK="1"--已出货
+local DELIVER_NOT_YET="0"--未出货
+
+local SEND_OPEN_LOCK_LOG="openLockState"
+local SEND_OPEN_LOCK_OK = "1"
+local SEND_OPEN_LOCK_FAIL = "0"
+
+local lockOpenState = SEND_OPEN_LOCK_FAIL
+local OPEN_LOCK_INS = nil
 
 
 local function getTableLen( tab )
@@ -91,7 +92,7 @@ end
 
 function deliverCallback( msg )
     if msg == OPEN_LOCK_INS then
-        lockOpenState = OPEN_OK
+        lockOpenState = SEND_OPEN_LOCK_OK
     end
 end
 
@@ -125,10 +126,11 @@ function  openLockCallback(addr)
                 LogUtil.d(TAG,TAG.." openLockCallback delivered OK")
                 Config.saveValue(DELIVER_STATE,DELIVER_OK)--设置出货状态
 
-                saleTable[LOCK_OPEN_STATE] = LOCK_STATE_OPEN--设定锁的状态
+                -- saleTable[LOCK_OPEN_STATE] = LOCK_STATE_OPEN--设定锁的状态
+                saleTable[LOCK_OPEN_STATE] = LOCK_STATE_OPEN
                 saleTable[CloudConsts.CTS]=os.time()
                 saleTable[UPLOAD_POSITION]=UPLOAD_NORMAL
-                saleTable[OPEN_LOCK_STATE]=lockOpenState
+                saleTable[SEND_OPEN_LOCK_LOG]=lockOpenState
                 local saleLogHandler = UploadSaleLog:new()
                 saleLogHandler:setMap(saleTable)
 
@@ -180,7 +182,7 @@ function TimerFunc(id)
            -- 是否超时了
            orderTimeoutTime=saleTable[Deliver.ORDER_TIMEOUT_TIME_IN_SEC]
            if orderTimeoutTime then
-               local lastOpenLockOrderId = Config.getValue(LAST_OPEN_LOCK_OID)
+               local lastOpenLockOrderId = Config.getValue(LASTEST_ORDER_ID)
                LogUtil.d(TAG,"TimeoutTable orderId = "..orderId.." lastOpenLockOrderId="..lastOpenLockOrderId.." timeout at "..orderTimeoutTime.." nowTime = "..systemTime)
                if systemTime > orderTimeoutTime or orderTimeoutTime-systemTime>ORDER_EXPIRED_SPAN then
                 
@@ -188,9 +190,9 @@ function TimerFunc(id)
                 if not saleTable[UPLOAD_POSITION] then
                     saleTable[UPLOAD_POSITION]=UPLOAD_TIMER_TIMEOUT
                     saleTable[CloudConsts.CTS]=systemTime
-                    saleTable[OPEN_LOCK_STATE]=lockOpenState
-                    
-                    saleTable[LOCK_OPEN_STATE] = lockOpenState == OPEN_OK and LOCK_STATE_OPEN or LOCK_STATE_CLOSED--设定锁的状态
+                    saleTable[SEND_OPEN_LOCK_LOG]=lockOpenState-- 开锁状态跟踪
+
+                    saleTable[LOCK_OPEN_STATE] = lockOpenState == SEND_OPEN_LOCK_OK and LOCK_STATE_OPEN or LOCK_STATE_CLOSED--设定锁的状态
 
                     local saleLogHandler = UploadSaleLog:new()
                     saleLogHandler:setMap(saleTable)
@@ -329,7 +331,7 @@ function Deliver:handleContent( content )
     saleLogMap[Deliver.ORDER_TIMEOUT_TIME_IN_SEC]= Consts.TEST_MODE_DELIVER and debugExpired or expired
     saleLogMap[LOCK_OPEN_STATE] = LOCK_STATE_CLOSED--出货时设置锁的状态为关闭
 
-    lockOpenState = OPEN_FAIL
+    lockOpenState = SEND_OPEN_LOCK_FAIL
 
     -- 如果收到订单时，已经过期或者本地时间不准:过早收到了订单，则直接上传超时
     local osTime = os.time()
@@ -418,7 +420,7 @@ function Deliver:handleContent( content )
     saleLogMap[LOCK_OPEN_TIME]=os.time()
 
     -- TODO 如果已经开过锁了，则不再重复开锁(在开锁成功的地方，进行更新 )
-    local lastOpenLockOrderId = Config.getValue(LAST_OPEN_LOCK_OID)
+    local lastOpenLockOrderId = Config.getValue(LASTEST_ORDER_ID)
     if orderId ~= lastOpenLockOrderId then
         -- 开锁，以及检测
         -- TODO 中断方式，进行回调
@@ -430,7 +432,7 @@ function Deliver:handleContent( content )
 
         UartMgr.setCallback(deliverCallback)
         UartMgr.publishMessage(OPEN_LOCK_INS)
-        Config.saveValue(LAST_OPEN_LOCK_OID,orderId)--更新开锁成功的订单号
+        Config.saveValue(LASTEST_ORDER_ID,orderId)--更新开锁成功的订单号
         Config.saveValue(DELIVER_STATE,DELIVER_NOT_YET)--重置出货状态
 
         LogUtil.d(TAG,TAG.." Deliver openLock,addr = "..device_seq)
