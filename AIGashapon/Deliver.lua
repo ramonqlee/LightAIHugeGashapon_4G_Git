@@ -159,10 +159,8 @@ function  openLockCallback(addr)
 end
 
 function TimerFunc(id)
-    if mTimerId and sys.timerIsActive(mTimerId) and 0 == getTableLen(gBusyMap) then
-        LogUtil.d(TAG,TAG.." in TimerFunc gBusyMap len="..getTableLen(gBusyMap).." stop timer and return")
-        sys.timerStop(mTimerId)
-        mTimerId = nil
+    if 0 == getTableLen(gBusyMap) then
+        LogUtil.d(TAG,TAG.." in TimerFunc empty gBusyMap")
         return
     end
 
@@ -414,46 +412,44 @@ function Deliver:handleContent( content )
         saleLogHandler:send(CRBase.TIMEOUT_WHEN_ARRIVE)--超时的话，直接上报失败状态
         return
     end
-        saleLogMap[LOCK_OPEN_TIME]=os.time()
-
-        -- TODO 如果已经开过锁了，则不再重复开锁(在开锁成功的地方，进行更新 )
-        local lastOpenLockOrderId = Config.getValue(LAST_OPEN_LOCK_OID)
-        if orderId ~= lastOpenLockOrderId then
-            -- 开锁，以及检测
-            -- TODO 中断方式，进行回调
-            UARTControlInd.setDeliverCallback(device_seq,openLockCallback)
-            
-            UARTControlInd.open()--兼容性方法，已经废弃
-
-            if not OPEN_LOCK_INS then
-                OPEN_LOCK_INS = UARTControlInd.encode()--新的开锁方式
-            end
-
-            UartMgr.setCallback(deliverCallback)
-            UartMgr.publishMessage(OPEN_LOCK_INS)
-            Config.saveValue(LAST_OPEN_LOCK_OID,orderId)--更新开锁成功的订单号
-            Config.saveValue(DELIVER_STATE,DELIVER_NOT_YET)--重置出货状态
-
-            LogUtil.d(TAG,TAG.." Deliver openLock,addr = "..device_seq)
-        else
-            LogUtil.d(TAG,TAG.." Deliver lock opened before,orderId = "..orderId)
-        end
         
-        local key = device_seq.."_"..location
-        gBusyMap[key]=saleLogMap
+    saleLogMap[LOCK_OPEN_TIME]=os.time()
 
-        LogUtil.d(TAG,TAG.." add to gBusyMap orderId="..orderId.." newLen="..getTableLen(gBusyMap))
-
-        if Consts.DEVICE_ENV then
-            --start timer monitor already
-            if mTimerId and sys.timerIsActive(mTimerId) then
-                LogUtil.d(TAG,TAG.." timer_is_active id ="..mTimerId)
-            else
-                mTimerId = sys.timerLoopStart(TimerFunc,self.LOOP_TIME_IN_MS)
-                LogUtil.d(TAG,TAG.." timer_loop_start id ="..mTimerId)
-            end
+    -- TODO 如果已经开过锁了，则不再重复开锁(在开锁成功的地方，进行更新 )
+    local lastOpenLockOrderId = Config.getValue(LAST_OPEN_LOCK_OID)
+    if orderId ~= lastOpenLockOrderId then
+        -- 开锁，以及检测
+        -- TODO 中断方式，进行回调
+        UARTControlInd.setDeliverCallback(device_seq,openLockCallback)
             
+        UARTControlInd.open()--兼容性方法，已经废弃
+
+        if not OPEN_LOCK_INS then
+            OPEN_LOCK_INS = UARTControlInd.encode()--新的开锁方式
         end
+
+        UartMgr.setCallback(deliverCallback)
+        UartMgr.publishMessage(OPEN_LOCK_INS)
+        Config.saveValue(LAST_OPEN_LOCK_OID,orderId)--更新开锁成功的订单号
+        Config.saveValue(DELIVER_STATE,DELIVER_NOT_YET)--重置出货状态
+
+        LogUtil.d(TAG,TAG.." Deliver openLock,addr = "..device_seq)
+    else
+        LogUtil.d(TAG,TAG.." Deliver lock opened before,orderId = "..orderId)
+    end
+        
+    local key = device_seq.."_"..location
+    gBusyMap[key]=saleLogMap
+
+    -- LogUtil.d(TAG,TAG.." add to gBusyMap orderId="..orderId.." newLen="..getTableLen(gBusyMap))
+
+    --start timer monitor already
+    if mTimerId and sys.timerIsActive(mTimerId) then
+        LogUtil.d(TAG,TAG.." timer_is_active id ="..mTimerId)
+    else
+        mTimerId = sys.timerLoopStart(TimerFunc,Deliver.LOOP_TIME_IN_MS)
+        LogUtil.d(TAG,TAG.." timer_loop_start id ="..mTimerId)
+    end
 end 
 
 
