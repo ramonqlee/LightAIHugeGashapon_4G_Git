@@ -189,6 +189,8 @@ function TimerFunc(id)
                     saleTable[UPLOAD_POSITION]=UPLOAD_TIMER_TIMEOUT
                     saleTable[CloudConsts.CTS]=systemTime
                     saleTable[OPEN_LOCK_STATE]=lockOpenState
+                    
+                    saleTable[LOCK_OPEN_STATE] = lockOpenState == OPEN_OK and LOCK_STATE_OPEN or LOCK_STATE_CLOSED--设定锁的状态
 
                     local saleLogHandler = UploadSaleLog:new()
                     saleLogHandler:setMap(saleTable)
