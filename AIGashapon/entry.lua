@@ -33,10 +33,7 @@ function startMonitor()
     end
 
     monitorTimer = sys.timerLoopStart(function()
-            if MQTTManager.hasMessage() then
-                return
-            end
-
+        
             -- 检查下mqtt的状态，如果没运行，则重启下
             mqttChecker()
             
@@ -55,7 +52,6 @@ function startTimedTask()
             end
 
             -- 检查下mqtt的状态，如果没运行，则重启下
-            mqttChecker()
             checkTask()
             checkUpdate()
             
