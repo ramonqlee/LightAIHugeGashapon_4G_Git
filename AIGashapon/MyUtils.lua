@@ -84,7 +84,6 @@ function saveUserName(nodeId)
         return
     end
     nodeIdInConfig = nodeId
-    NodeIdConfig.saveValue(CloudConsts.NODE_ID,nodeId)
 end
 
 function savePassword(password)
@@ -92,19 +91,14 @@ function savePassword(password)
         return
     end
     passwordInConfig = password
-    NodeIdConfig.saveValue(CloudConsts.PASSWORD,password)
 end
 
 function clearUserName()
     nodeIdInConfig=""
-    Config.saveValue(CloudConsts.NODE_ID,"")
-    NodeIdConfig.saveValue(CloudConsts.NODE_ID,"")
 end
 
 function clearPassword()
     passwordInConfig=""
-    Config.saveValue(CloudConsts.PASSWORD,"")
-    NodeIdConfig.saveValue(CloudConsts.PASSWORD,"")
 end
 
 
@@ -116,19 +110,6 @@ function getUserName(allowDefault)
 
     if nodeIdInConfig and #nodeIdInConfig>0 then
         return nodeIdInConfig
-    end
-
-    --优先使用专用的文件
-    nodeId = NodeIdConfig.getValue(CloudConsts.NODE_ID)
-    if nodeId and #nodeId>0 then
-        nodeIdInConfig= nodeId
-        return nodeId
-    end
-
-    nodeId = Config.getValue(CloudConsts.NODE_ID)
-    if nodeId and #nodeId>0 then
-        nodeIdInConfig= nodeId
-        return nodeId
     end
 
     if allowDefault then
@@ -144,19 +125,6 @@ function getPassword(allowDefault)
 
     if passwordInConfig and #passwordInConfig>0 then
         return passwordInConfig
-    end
-
-    --优先使用专用的文件
-    ps = NodeIdConfig.getValue(CloudConsts.PASSWORD)
-    if ps and #ps>0 then
-        passwordInConfig=ps
-        return ps
-    end
-
-    ps = Config.getValue(CloudConsts.PASSWORD)
-    if ps and #ps>0 then
-        passwordInConfig=ps
-        return ps
     end
 
     if allowDefault then

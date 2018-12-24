@@ -19,13 +19,53 @@ require "UARTShutDown"
 local TAG = "SetConfig"
 
 local STATE_INIT = "INIT"
-local rebootTime
-local haltTime 
+local CHECK_INTERVAL_IN_SEC = 60--检查重启的时间间隔
 local rebootTimer
+local previousInitSn
+
+local rebootTimeInSec
+local shutdownTimeInSec
+
+local function formTimeWithHourMin( timeStr )
+    local ONE_HOUR_IN_SEC = 60*60
+    local ONE_DAY_IN_SEC = 24*ONE_HOUR_IN_SEC
+
+    local timeTab = MyUtils.StringSplit(timeStr,":")
+    local tabLen = MyUtils.getTableLen(timeTab)
+
+    -- 形如"100hour"的支持
+    if 1 == tabLen then
+        local r = os.time()
+        r = r + tonumber(timeTab[1])*ONE_HOUR_IN_SEC
+        return r
+    end
+
+    -- 形如"7：30"的支持
+    if 2 == tabLen then
+        local time = misc.getClock()
+        return os.time({year =time.year, month = time.month, day =time.day, hour =tonumber(timeTab[1]), min =tonumber(timeTab[2])})
+    end
+
+    -- 形如"100:7:30"(10day 7:30)
+    if 3 == tabLen  then
+        local time = misc.getClock()
+        local r = os.time({year =time.year, month = time.month, day =time.day, hour =tonumber(timeTab[2]), min =tonumber(timeTab[3])})
+        r = r + tonumber(timeTab[1])*ONE_DAY_IN_SEC
+        return r
+    end
+
+    -- 形如"2018:12:21:7:30"(2018/12/21 7:30)
+    if 5 == tabLen  then
+        return os.time({year =tonumber(timeTab[1]), month = tonumber(timeTab[2]), day =tonumber(timeTab[3]), hour =tonumber(timeTab[4]), min =tonumber(timeTab[5])})
+    end
+
+    return os.time()
+end
 
 SetConfig = CBase:new{
     MY_TOPIC = "set_config"
 }
+
 
 function SetConfig:new(o)
     o = o or CBase:new(o)
@@ -55,56 +95,60 @@ end
 -- }
 -- ]]
 function SetConfig:handleContent( content )
-	local r = false
- 	if not content then
- 		return
- 	end
+    local r = false
+    if not content then
+        return
+    end
 
- 	local state = content[CloudConsts.STATE]
- 	local sn = content[CloudConsts.SN]
- 	if(not state or not sn) then
- 		return r
- 	end
+    local state = content[CloudConsts.STATE]
+    local sn = content[CloudConsts.SN]
+    if not state or not sn then
+        return r
+    end
+    
+    haltTimeTemp = content[CloudConsts.HALT_SCHEDULE]--关机时间
+    --TOOD 加入误操作机制
+    --如果收到的关机时间已经过了，则忽略
+    local tempTime = formTimeWithHourMin(haltTimeTemp)
+    if tempTime > os.time() then
+        local haltTime = haltTimeTemp
+        local rebootTime = content[CloudConsts.REBOOT_SCHEDULE]--开机时间
 
- 	Config.saveValue(CloudConsts.VM_SATE,state)
- 	Config.saveValue(CloudConsts.NODE_NAME,content[CloudConsts.NODE_NAME])
- 	Config.saveValue(CloudConsts.NODE_PRICE,content[CloudConsts.NODE_PRICE])
- 	-- Config.saveValue(CloudConsts.REBOOT_SCHEDULE,content[CloudConsts.REBOOT_SCHEDULE])
-    haltTime = content[CloudConsts.HALT_SCHEDULE]--关机时间
-    rebootTime = content[CloudConsts.REBOOT_SCHEDULE]--开机时间
+        if rebootTime or haltTime then
+            LogUtil.d(TAG,"rebootTime = "..rebootTime.." haltTime="..haltTime)
+
+            rebootTimeInSec = formTimeWithHourMin(rebootTime)
+            shutdownTimeInSec = formTimeWithHourMin(haltTime)
+            --理论上开机时间应该在关机时间之后，所以需要处理下
+            if rebootTimeInSec < shutdownTimeInSec then
+                --将开机时间推迟到第二天
+                LogUtil.d(TAG," origin rebootTimeInSec= "..rebootTimeInSec)
+                rebootTimeInSec = rebootTimeInSec+24*60*60
+            end
+
+            LogUtil.d(TAG,"rebootTimeInSec = "..rebootTimeInSec.." shutdownTimeInSec = "..shutdownTimeInSec.." os.time()="..os.time())
+
+            content["setHaltTime"]=shutdownTimeInSec
+            content["setBootTime"]=rebootTimeInSec
+        end
+    end
+
+    MQTTReplyMgr.replyWith(RepConfig.MY_TOPIC,content)
 
     SetConfig.startRebootSchedule()
 
+    -- 恢复初始状态
+    if STATE_INIT==state then
+        -- 获取最近一次INIT的sn，如果是重复的，则不再发送消息
+        if previousInitSn ~= sn then
+            previousInitSn = sn
 
- 	nodeName = Config.getValue(CloudConsts.NODE_NAME)
- 	if nodeName then
- 		LogUtil.d(TAG,"state ="..state.." node_name="..nodeName)
- 	else
- 		LogUtil.d(TAG,"nodeName is empty")
- 	end
-
- 	local map={}
- 	map[CloudConsts.SN]=sn
- 	map[CloudConsts.STATE]=state
- 	map[CloudConsts.NODE_NAME]=content[CloudConsts.NODE_NAME]
- 	map[CloudConsts.NODE_PRICE]=content[CloudConsts.NODE_PRICE]
- 	map[CloudConsts.REBOOT_SCHEDULE]=content[CloudConsts.REBOOT_SCHEDULE]
-    local arriveTime = content[CloudConsts.ARRIVE_TIME]
-    if arriveTime then
-        map[CloudConsts.ARRIVE_TIME]= arriveTime    
-    end
-
- 	-- print(RepConfig.MY_TOPIC)
- 	MQTTReplyMgr.replyWith(RepConfig.MY_TOPIC,map)
-
- 	-- 恢复初始状态
- 	if STATE_INIT==state then
-    	LogUtil.d(TAG,"state ="..state.." clear nodeId and password")
-        MyUtils.clearUserName()
-        MyUtils.clearPassword()
-        
-    	MQTTManager.disconnect()
-    	return
+            LogUtil.d(TAG,"state ="..state.." clear nodeId and password")
+            MyUtils.clearUserName()
+            MyUtils.clearPassword()
+            
+            MQTTManager.disconnect()
+        end
     end
 end 
 
@@ -119,42 +163,30 @@ function SetConfig:startRebootSchedule()
     end
 
     rebootTimer = sys.timerLoopStart(function()
+        LogUtil.d(TAG," checking reboot schedule")
+
         if MQTTManager.hasMessage() or Deliver.isDelivering() then
+            LogUtil.d(TAG," checking reboot schedule,but mqtt has message or is delivering")
             return
         end
 
-        if not reboot_schedule or not haltTime then
+        if not shutdownTimeInSec or not shutdownTimeInSec then
             return
         end
-        -- 是否到时间了，关机并设置下次开机的时间
-        local y =  os.date("%Y")
-        local m =  os.date("%m")
-        local d =  os.date("%d")
-
-        local SPLIT_LEN = 2
-        local rebootTab = MyUtils.StringSplit(reboot_schedule)
-        local shutdownTab = MyUtils.StringSplit(haltTime)
-
-        if MyUtils.getTableLen(rebootTab) ~= SPLIT_LEN or MyUtils.getTableLen(shutdownTab) ~= SPLIT_LEN then
+        
+        if shutdownTimeInSec > os.time() then
             return
         end
 
-        local rebootTimeMs = os.time({year =y, month = m, day =d, hour =tonumber(rebootTab[1]), min =tonumber(rebootTab[2]), sec = 00})
-        local shutdownTimeMs = os.time({year =y, month = m, day =d, hour =tonumber(shutdownTab[1]), min =tonumber(shutdownTab[2]), sec = 00})
-        if shutdownTimeMs < os.time() then
-            LogUtil.d(TAG," shutdownTimeMs = "..shutdownTimeMs.." rebootTimeMs = "..rebootTimeMs)
-            return
-        end
-
-        --播放扫码声音
-        local delay = shutdownTimeMs-rebootTimeMs
+        --关机，并设定下次开机的时间
+        local delay = rebootTimeInSec - shutdownTimeInSec
         if delay < 0 then
             delay = -delay
         end
 
         local r = UARTShutDown.encode(delay)
         UartMgr.publishMessage(r)
-        LogUtil.d(TAG,".........................................shutdown now.........................................")
-    end,60*1000)
+        LogUtil.d(TAG,"......shutdown now....after "..delay.."seconds, it will poweron")
+    end,CHECK_INTERVAL_IN_SEC*1000)
 end
 
