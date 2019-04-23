@@ -16,7 +16,6 @@ require "msgcache"
 require "Config"
 require "LogUtil"
 require "UartMgr"
-require "Lightup"
 require "GetMachVars"
 require "ScanQrCode"
 require "Deliver"
@@ -28,10 +27,15 @@ require "ConstsPrivate"
 
 local jsonex = require "jsonex"
 
-local MAX_MQTT_FAIL_COUNT = 3--mqtt连接失败2次
-local MAX_NET_FAIL_COUNT = Consts.TEST_MODE and 6 or 3*5--断网3分钟，会重启
-local RETRY_TIME=12000
-local DISCONNECT_WAIT_TIME=5000
+
+local MAX_FLY_MODE_RETRY_COUNT = 3--为了测试方便，设定了10次，实际设定为2次
+local MAX_FLY_MODE_WAIT_TIME = 3*Consts.ONE_SEC_IN_MS--实际1秒
+local IP_READY_NORMAL_WAIT_TIME = 10*Consts.ONE_SEC_IN_MS--实际7秒既可以
+local IP_READY_LOW_RSSI_WAIT_TIME = 30*Consts.ONE_SEC_IN_MS--实际7秒既可以
+
+
+local HTTP_WAIT_TIME=5*Consts.ONE_SEC_IN_MS
+
 local KEEPALIVE,CLEANSESSION=60,0
 local CLEANSESSION_TRUE=1
 local MAX_RETRY_SESSION_COUNT=2--重试n次后，如果还事变，则清理服务端的消息
@@ -54,6 +58,10 @@ local toHandleRequests={}
 local startmqtted = false
 local unsubscribe = false
 
+local lastSystemTime--上次的系统时间
+local lastMQTTTrafficTime--上次mqtt交互的时间
+local mqttMonitorTimer
+
 function emptyExtraRequest()
     toHandleRequests={}
     LogUtil.d(TAG," emptyExtraRequest")
@@ -63,46 +71,80 @@ function emptyMessageQueue()
       toPublishMessages={}
 end
 
-function timeSync()
-    if Consts.timeSynced then
-        return
-    end
-
-    -- 如果超时过了重试次数，则停止，防止消息过多导致服务端消息堵塞
-    if Consts.timeSyncCount > Consts.MAX_TIME_SYNC_COUNT then
-        LogUtil.d(TAG," timeSync abort because count exceed,ignore this request")
-
-        if Consts.gTimerId and sys.timerIsActive(Consts.gTimerId) then
-            sys.timerStop(Consts.gTimerId)
-            Consts.gTimerId = nil
-        end
-        
-        return
-    end
-
+--系统ntp开机后，只同步一次；后续都是在此基础上，通过自有服务器校对时间
+--定时校对时间，以内ntp可能出问题，一旦mqtt连接，用自有的时间进行校正
+function selfTimeSync()
     if Consts.gTimerId and sys.timerIsActive(Consts.gTimerId) then
         return
     end
 
-    Consts.gTimerId=sys.timerLoopStart(function()
-            Consts.timeSyncCount = Consts.timeSyncCount+1
-            if Consts.timeSyncCount > Consts.MAX_TIME_SYNC_COUNT then
-                LogUtil.d(TAG," timeSync abort because count exceed,stop timer")
+    lastSystemTime = os.time()
 
-                if Consts.gTimerId and sys.timerIsActive(Consts.gTimerId) then
-                    sys.timerStop(Consts.gTimerId)
-                    Consts.gTimerId = nil
+    --每隔10秒定时查看下当前时间，如果系统时间发生了2倍的时间波动，则用自有时间服务进行校正
+    Consts.gTimerId=sys.timerLoopStart(function()
+            local timeDiff = lastSystemTime-os.time()
+            lastSystemTime = os.time()
+
+            --时间是否同步:时间同步后，设定重启时间
+            if Consts.LAST_REBOOT then
+                -- 时间走偏了，重新校正
+                if timeDiff < 0 then
+                    timeDiff = -timeDiff
                 end
-                
+                --时间是否发生了波动
+                if timeDiff < 2*Consts.TIME_SYNC_INTERVAL_MS then
+                    return
+                end
+            end
+
+            --mqtt连接时，用自有时间进行校正
+            if not mqttc or not mqttc.connected then
                 return
             end
 
             local handle = GetTime:new()
             handle:sendGetTime(os.time())
 
-            LogUtil.d(TAG,"timeSync count =="..Consts.timeSyncCount)
+            LogUtil.d(TAG,"selfTimeSync now")
 
         end,Consts.TIME_SYNC_INTERVAL_MS)
+end
+
+
+--监控mqtt网络流量OK
+function startMonitorMQTTTraffic()
+    --时间同步过了，才启动，防止因为时间同步导致的bug
+    if not Consts.LAST_REBOOT then
+        LogUtil.d(TAG,"startMonitorMQTTTraffic not ready,return")
+        return
+    end
+
+    if mqttMonitorTimer and sys.timerIsActive(mqttMonitorTimer) then
+        LogUtil.d(TAG,"startMonitorMQTTTraffic running now,return")
+        return
+    end
+
+    mqttMonitorTimer = sys.timerLoopStart(function()
+        local timeOffsetInSec = os.time()-lastMQTTTrafficTime
+        
+        --如果超过了一定时间，没有mqtt消息了，则重启下板子,恢复服务
+        if timeOffsetInSec*Consts.ONE_SEC_IN_MS<30*Consts.ONE_SEC_IN_MS then
+            return
+        end
+
+        LogUtil.d(TAG,"noMQTTTrafficTooLong,restart now")
+
+        stopMonitorMQTTTraffic()--先停止定时器
+        sys.restart("noMQTTTrafficTooLong")--重启更新包生效
+
+    end,Consts.ONE_SEC_IN_MS)
+end
+
+function stopMonitorMQTTTraffic()
+    if mqttMonitorTimer and sys.timerIsActive(mqttMonitorTimer) then
+        sys.timerStop(mqttMonitorTimer)
+        mqttMonitorTimer=nil
+    end
 end
 
 function getNodeIdAndPasswordFromServer()
@@ -141,7 +183,7 @@ function checkMQTTUser()
          -- mywd.feed()--获取配置中，别忘了喂狗，否则会重启
         getNodeIdAndPasswordFromServer()
         
-        sys.wait(RETRY_TIME)
+        sys.wait(HTTP_WAIT_TIME)
         username = MyUtils.getUserName(false)
         password = MyUtils.getPassword(false)
 
@@ -153,20 +195,57 @@ function checkMQTTUser()
     return username,password
 end
 
-function checkNetwork()
-    local netFailCount = 0
-    while not link.isReady() do
-        LogUtil.d(TAG,".............................socket not ready.............................")
 
-        if netFailCount >= MAX_NET_FAIL_COUNT then
-            -- 修改为看门狗和软重启交替进行的方式
-            LogUtil.d(TAG,"............softReboot when not link.isReady in checkNetwork")
-            sys.wait(RETRY_TIME)--等待日志输出完毕
-            sys.restart("netFailTooLong")--重启更新包生效
+--forceReconnect 强制重新连接
+function checkNetwork(forceReconnect)
+    if not forceReconnect and socket.isReady() then
+        LogUtil.d(TAG,".............................checkNetwork socket.isReady,return.............................")
+        return
+    end
+
+    local netFailCount = 0
+    --采用递进增加的方式
+    local lastWaitTime = 0
+
+    while true do
+        --尝试离线模式，实在不行重启板子
+        --进入飞行模式，20秒之后，退出飞行模式
+        LogUtil.d(TAG,".............................switchFly true.............................")
+        net.switchFly(true)
+
+        -- 如果信号较低，则多等会
+        local temp = MAX_FLY_MODE_WAIT_TIME
+        if lastRssi < Consts.LOW_RSSI then
+            temp = 2*MAX_FLY_MODE_WAIT_TIME
+        end
+
+        sys.wait(temp)
+
+        LogUtil.d(TAG,".............................switchFly false.............................")
+        net.switchFly(false)
+
+        if not socket.isReady() then
+            -- 如果信号较低，则多等会；每进入一次，递增一下等待的时间
+            if lastRssi < Consts.LOW_RSSI then
+                lastWaitTime = lastWaitTime + IP_READY_LOW_RSSI_WAIT_TIME
+            else
+                lastWaitTime = lastWaitTime + IP_READY_NORMAL_WAIT_TIME
+            end
+
+            LogUtil.d(TAG,".............................socket not ready,lastWaitTime= "..lastWaitTime)
+            --等待网络环境准备就绪，超时时间是40秒
+            sys.waitUntil("IP_READY_IND",lastWaitTime)
+        end
+
+        if socket.isReady() then
+            LogUtil.d(TAG,".............................socket ready after retry.............................")
+            return
         end
 
         netFailCount = netFailCount+1
-        sys.wait(RETRY_TIME)
+        if netFailCount>=MAX_FLY_MODE_RETRY_COUNT then
+            sys.restart("netFailTooLong")--重启更新包生效
+        end
     end
 end
 
@@ -177,19 +256,7 @@ function connectMQTT()
         LogUtil.d(TAG,"fail to connect mqtt,mqttc:disconnect,try after 10s")
         mqttc:disconnect()
         
-        sys.wait(RETRY_TIME)
-
-        mqttFailCount = mqttFailCount+1
-        if mqttFailCount >= MAX_MQTT_FAIL_COUNT then
-            MyUtils.clearUserName()
-            MyUtils.clearPassword()
-
-            -- 网络ok时，重启板子
-            LogUtil.d(TAG,"............softReboot when link.isReady in connectMQTT")
-            sys.restart("mqttFailTooLong")--重启更新包生效
-            sys.wait(RETRY_TIME)--等待日志输出完毕
-            break
-        end
+        checkNetwork(true)
     end
 end
 
@@ -269,8 +336,7 @@ end
 
 
 function handleRequst()
-    timeSync()
-
+    
     if not toHandleRequests or 0 == MyUtils.getTableLen(toHandleRequests) then
         LogUtil.d(TAG,"empty handleRequst")
         return
@@ -361,12 +427,15 @@ function loopMessage(mqttProtocolHandlerPool)
             LogUtil.d(TAG," mqttc.disconnected and no message,mqttc:disconnect() and break") 
             break
         end
+        selfTimeSync()--启动时间同步
+        startMonitorMQTTTraffic()
 
         local timeout = CLIENT_COMMAND_TIMEOUT
         if hasMessage() then
             timeout = CLIENT_COMMAND_SHORT_TIMEOUT
         end
         local r, data = mqttc:receive(timeout)
+        lastMQTTTrafficTime = os.time()
 
         if not data then
             mqttc:disconnect()
@@ -403,6 +472,8 @@ function loopMessage(mqttProtocolHandlerPool)
             break
         end
     end
+
+    stopMonitorMQTTTraffic()
 end
 
 function disconnect()
@@ -436,7 +507,7 @@ function startmqtt()
 
     while true do
         --检查网络，网络不可用时，会重启机器
-        checkNetwork()
+        checkNetwork(false)
         local USERNAME,PASSWORD = checkMQTTUser()
         while not USERNAME or not PASSWORD or #USERNAME==0 or #PASSWORD==0 do 
             USERNAME,PASSWORD = checkMQTTUser()
@@ -447,7 +518,6 @@ function startmqtt()
         mMqttProtocolHandlerPool[#mMqttProtocolHandlerPool+1]=SetConfig:new(nil)
         mMqttProtocolHandlerPool[#mMqttProtocolHandlerPool+1]=GetMachVars:new(nil)
         mMqttProtocolHandlerPool[#mMqttProtocolHandlerPool+1]=Deliver:new(nil)
-        mMqttProtocolHandlerPool[#mMqttProtocolHandlerPool+1]=Lightup:new(nil)
         mMqttProtocolHandlerPool[#mMqttProtocolHandlerPool+1]=ScanQrCode:new(nil)
 
         local topics = {}
@@ -500,5 +570,4 @@ function startmqtt()
 end
 
 
-          
           

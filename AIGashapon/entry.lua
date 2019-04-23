@@ -113,7 +113,7 @@ function run()
 		
 		sys.taskInit(MQTTManager.startmqtt)
 
-	end,2*1000)
+	end,60*1000)
 
 end
 

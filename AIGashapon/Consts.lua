@@ -15,12 +15,13 @@ baudRate = 115200
 WAIT_UART_INTERVAL = 500--等待新数据写入串口的时间间隔
 USER_DIR = "/user_dir"--文件存储目录
 
+ONE_SEC_IN_MS = 1000
 LAST_REBOOT=nil
 TASK_WAIT_IN_MS = 3000--请求网络任务时，强制当前任务延时执行
 FEEDDOG_PERIOD = 30*1000--定时喂狗的周期（ms）
 MAX_LOOP_INTERVAL = 3*60
 MAX_TIME_SYNC_COUNT = 2--时间同步重试次数
-TIME_SYNC_INTERVAL_MS = 30*1000--时间同步发起的间隔
+TIME_SYNC_INTERVAL_MS = 10*1000--时间同步发起的间隔
 -- FIXME TEMP CODE
 TIMED_TASK_INTERVAL_MS = 5*60*1000--定时任务检测的时间
 MONITOR_TASK_INTERVAL_MS = 2*60*1000 --服务检测
@@ -36,10 +37,8 @@ TWINKLE_INTERVAL = 4*1000--切换闪灯的周期:比闪灯时间多2秒
 TWINKLE_TIME = 2--待机闪灯的次数(每次闪灯共耗时1s)
 -- LOCK_AUDIO = "/ldata/xiaowanzi.mp3"
 gTimerId=nil
-timeSynced = nil
-timeSyncCount=0
 RETRY_OPEN_LOCK=false--是否开启重新开锁功能
 EANBLE_MERGE_BOARD_ID = false--是否合并所有获得的小板子id
 MIN_MQTT_REBOOT_COUNT=2 --如果超过次数，则重启机器
-   
+LOW_RSSI = 15
 
