@@ -454,15 +454,18 @@ function loopMessage(mqttProtocolHandlerPool)
                 end
             end
         else
-            if data then
-                log.info(TAG, "msg = "..data.." reconn="..reconnectCount.." ver=".._G.VERSION.." ostime="..os.time())
+            if data then--超时了
+                log.info(TAG, "msg = "..data.." ostime="..os.time())
+
+                -- 发送待发送的消息，设定条数，防止出现多条带发送时，出现消息堆积
+                publishMessageQueue(MAX_MSG_CNT_PER_REQ)
+                handleRequst() 
+            else--出错了
+                LogUtil.d(TAG," mqttc receive false and no message,mqttc:disconnect() and break")
+
+                mqttc:disconnect()
+                break
             end
-            -- 发送待发送的消息，设定条数，防止出现多条带发送时，出现消息堆积
-            publishMessageQueue(MAX_MSG_CNT_PER_REQ)
-            handleRequst()
-            -- collectgarbage("collect")
-            -- c = collectgarbage("count")
-            --LogUtil.d("Mem"," line:"..debug.getinfo(1).currentline.." memory count ="..c)
         end
 
         --oopse disconnect
