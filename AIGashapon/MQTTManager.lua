@@ -563,6 +563,8 @@ function startmqtt()
         end
         
         if mqttc.connected and mqttc:subscribe(topics) then
+            lastRssi = net.getRssi()
+            
             unsubscribe = false
             LogUtil.d(TAG,".............................subscribe topic ="..jsonex.encode(topics))
 
